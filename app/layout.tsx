@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import AppBottomNav from "@/components/AppBottomNav";
 
 export const metadata: Metadata = {
   title: "桌球系統 App V01",
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="zh-Hant">
-      <body>{children}</body>
+      <body>
+        {children}
+        <AppBottomNav />
+      </body>
     </html>
   );
 }
