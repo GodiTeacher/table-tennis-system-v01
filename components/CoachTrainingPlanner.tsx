@@ -6,16 +6,27 @@ import { TRAINING_ITEMS, getItemsForLevel } from "@/lib/training-items";
 
 type PlannedItem = { id: string; minutes: number };
 
+function clampNumber(value: string, min: number, fallback: number) {
+  if (value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(min, Math.floor(parsed));
+}
+
 export default function CoachTrainingPlanner() {
   const [activeLevel, setActiveLevel] = useState<TrainingLevelId>("B");
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(
     () => new Set(["T03", "T04", "F02"])
   );
   const [planOrder, setPlanOrder] = useState<string[]>(["T03", "T04", "F02"]);
-  const [minutes, setMinutes] = useState(90);
-  const [people, setPeople] = useState(6);
-  const [tables, setTables] = useState(3);
+  const [minutesInput, setMinutesInput] = useState("90");
+  const [peopleInput, setPeopleInput] = useState("6");
+  const [tablesInput, setTablesInput] = useState("3");
   const [showAll, setShowAll] = useState(false);
+
+  const minutes = clampNumber(minutesInput, 15, 90);
+  const people = clampNumber(peopleInput, 1, 6);
+  const tables = clampNumber(tablesInput, 1, 3);
 
   const visibleItems = useMemo(
     () => (showAll ? TRAINING_ITEMS : getItemsForLevel(activeLevel)),
@@ -91,7 +102,7 @@ export default function CoachTrainingPlanner() {
         </div>
         <div className="levelGrid">
           {TRAINING_LEVELS.map((level) => (
-            <button key={level.id} className={activeLevel === level.id ? "level active" : "level"} onClick={() => setActiveLevel(level.id)}>
+            <button type="button" key={level.id} className={activeLevel === level.id ? "level active" : "level"} onClick={() => setActiveLevel(level.id)}>
               <b>{level.id}</b><span>{level.name}</span><small>{level.description}</small>
             </button>
           ))}
@@ -108,7 +119,7 @@ export default function CoachTrainingPlanner() {
           {visibleItems.map((item) => {
             const checked = selectedItemIds.has(item.id);
             return (
-              <button key={item.id} className={checked ? "item checked" : "item"} onClick={() => toggleItem(item.id)}>
+              <button type="button" key={item.id} className={checked ? "item checked" : "item"} onClick={() => toggleItem(item.id)}>
                 <span className="checkbox">{checked ? "✓" : "+"}</span>
                 <div><b>{item.name}</b><small>{item.domain} · {item.subcategory}</small></div>
               </button>
@@ -121,10 +132,11 @@ export default function CoachTrainingPlanner() {
         <section className="card">
           <div className="sectionTitle"><div><span>03</span><h2>課程條件</h2></div></div>
           <div className="inputs">
-            <label>訓練時間<input type="number" min="15" value={minutes} onChange={(e)=>setMinutes(Math.max(15, Number(e.target.value) || 15))}/><em>分鐘</em></label>
-            <label>參與人數<input type="number" min="1" value={people} onChange={(e)=>setPeople(Math.max(1, Number(e.target.value) || 1))}/><em>人</em></label>
-            <label>可用球桌<input type="number" min="1" value={tables} onChange={(e)=>setTables(Math.max(1, Number(e.target.value) || 1))}/><em>桌</em></label>
+            <label>訓練時間<input inputMode="numeric" type="number" min="15" value={minutesInput} onChange={(e) => setMinutesInput(e.target.value)} onBlur={() => setMinutesInput(String(clampNumber(minutesInput, 15, 90)))}/><em>分鐘</em></label>
+            <label>參與人數<input inputMode="numeric" type="number" min="1" value={peopleInput} onChange={(e) => setPeopleInput(e.target.value)} onBlur={() => setPeopleInput(String(clampNumber(peopleInput, 1, 6)))}/><em>人</em></label>
+            <label>可用球桌<input inputMode="numeric" type="number" min="1" value={tablesInput} onChange={(e) => setTablesInput(e.target.value)} onBlur={() => setTablesInput(String(clampNumber(tablesInput, 1, 3)))}/><em>桌</em></label>
           </div>
+          <p className="muted">可先把數字整個刪除再重新輸入；離開欄位時才套用最小值。</p>
         </section>
         <section className="card">
           <div className="sectionTitle"><div><span>04</span><h2>分桌建議</h2></div></div>
@@ -146,8 +158,8 @@ export default function CoachTrainingPlanner() {
                   <span className="orderBadge">{index + 1}</span>
                   <div><b>{item.name}</b><small>{item.domain} · {item.subcategory}</small></div>
                   <div className="reorderButtons">
-                    <button disabled={index === 0} onClick={() => moveItem(item.id, -1)}>↑</button>
-                    <button disabled={index === selectedItems.length - 1} onClick={() => moveItem(item.id, 1)}>↓</button>
+                    <button type="button" disabled={index === 0} onClick={() => moveItem(item.id, -1)}>↑</button>
+                    <button type="button" disabled={index === selectedItems.length - 1} onClick={() => moveItem(item.id, 1)}>↓</button>
                   </div>
                   <strong>{allocation?.minutes ?? 0} 分</strong>
                 </div>
@@ -161,7 +173,7 @@ export default function CoachTrainingPlanner() {
 
       <section className="card selected">
         <div className="sectionTitle"><div><span>06</span><h2>今日已選訓練</h2></div><strong>{selectedItems.length} 項</strong></div>
-        {selectedItems.length === 0 ? <p className="muted">尚未選擇訓練項目。</p> : <div className="chips">{selectedItems.map((item) => <button key={item.id} onClick={() => toggleItem(item.id)}>{item.name} <span>×</span></button>)}</div>}
+        {selectedItems.length === 0 ? <p className="muted">尚未選擇訓練項目。</p> : <div className="chips">{selectedItems.map((item) => <button type="button" key={item.id} onClick={() => toggleItem(item.id)}>{item.name} <span>×</span></button>)}</div>}
       </section>
     </main>
   );
