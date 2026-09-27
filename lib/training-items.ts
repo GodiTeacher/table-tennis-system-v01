@@ -9,14 +9,29 @@ export type TrainingItem = {
   recommendedLevels: TrainingLevelId[];
 };
 
+const ALL_LEVELS: TrainingLevelId[] = ["A", "B", "C", "D", "E", "F"];
+
 function recommendedLevelsFor(stage: string): TrainingLevelId[] {
-  if (stage.includes("全階段")) return ["A", "B", "C", "D", "E", "F"];
-  if (stage.includes("啟蒙") && stage.includes("基礎")) return ["A", "B"];
-  if (stage.includes("基礎") && stage.includes("進階")) return ["C", "D", "E"];
-  if (stage.includes("進階")) return ["D", "E", "F"];
-  if (stage.includes("基礎")) return ["B", "C"];
-  if (stage.includes("啟蒙")) return ["A"];
-  return ["A", "B", "C", "D", "E", "F"];
+  const normalized = stage.replaceAll(" ", "").trim();
+
+  switch (normalized) {
+    case "啟蒙":
+      return ["A"];
+    case "啟蒙→基礎":
+    case "啟蒙->基礎":
+      return ["A", "B"];
+    case "基礎":
+      return ["B", "C"];
+    case "基礎→進階":
+    case "基礎->進階":
+      return ["C", "D", "E"];
+    case "進階":
+      return ["D", "E", "F"];
+    case "全階段":
+      return ALL_LEVELS;
+    default:
+      return [];
+  }
 }
 
 export const TRAINING_ITEMS: TrainingItem[] = skills.map((skill) => ({
