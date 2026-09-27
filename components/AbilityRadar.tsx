@@ -19,7 +19,27 @@ function point(cx: number, cy: number, radius: number, angle: number) {
   return { x: cx + Math.cos(rad) * radius, y: cy + Math.sin(rad) * radius };
 }
 
-export default function AbilityRadar({ domains }: { domains: RadarDomain[] }) {
+function polygonPoints(domains: RadarDomain[], cx: number, cy: number, maxRadius: number, angles: number[]) {
+  return domains
+    .map((domain, index) => {
+      const value = domain.value ?? 0;
+      const p = point(cx, cy, (maxRadius * Math.max(0, Math.min(5, value))) / 5, angles[index]);
+      return `${p.x},${p.y}`;
+    })
+    .join(' ');
+}
+
+export default function AbilityRadar({
+  domains,
+  comparisonDomains,
+  currentLabel = '目前',
+  comparisonLabel = '30 天前',
+}: {
+  domains: RadarDomain[];
+  comparisonDomains?: RadarDomain[];
+  currentLabel?: string;
+  comparisonLabel?: string;
+}) {
   const cx = 180;
   const cy = 170;
   const maxRadius = 112;
@@ -34,13 +54,10 @@ export default function AbilityRadar({ domains }: { domains: RadarDomain[] }) {
       .join(' ')
   );
 
-  const valuePoints = domains
-    .map((domain, index) => {
-      const value = domain.value ?? 0;
-      const p = point(cx, cy, (maxRadius * Math.max(0, Math.min(5, value))) / 5, angles[index]);
-      return `${p.x},${p.y}`;
-    })
-    .join(' ');
+  const valuePoints = polygonPoints(domains, cx, cy, maxRadius, angles);
+  const comparisonPoints = comparisonDomains?.length === domains.length
+    ? polygonPoints(comparisonDomains, cx, cy, maxRadius, angles)
+    : null;
 
   return (
     <div className="radarWrap">
@@ -52,6 +69,15 @@ export default function AbilityRadar({ domains }: { domains: RadarDomain[] }) {
           const end = point(cx, cy, maxRadius, angle);
           return <line key={index} x1={cx} y1={cy} x2={end.x} y2={end.y} stroke="#e3e8ee" strokeWidth="1" />;
         })}
+        {comparisonPoints ? (
+          <polygon
+            points={comparisonPoints}
+            fill="rgba(109,122,140,.06)"
+            stroke="#8a96a6"
+            strokeWidth="2"
+            strokeDasharray="7 6"
+          />
+        ) : null}
         <polygon points={valuePoints} fill="rgba(39,52,68,.16)" stroke="#273444" strokeWidth="3" />
         {domains.map((domain, index) => {
           const value = domain.value ?? 0;
@@ -69,6 +95,12 @@ export default function AbilityRadar({ domains }: { domains: RadarDomain[] }) {
           );
         })}
       </svg>
+      {comparisonPoints ? (
+        <div className="radarCompareLegend" aria-label="能力圖比較圖例">
+          <span><i className="radarLegendCurrent" />{currentLabel}</span>
+          <span><i className="radarLegendPrevious" />{comparisonLabel}</span>
+        </div>
+      ) : null}
       <div className="radarLegend">
         {domains.map((domain) => (
           <div key={domain.name}>
