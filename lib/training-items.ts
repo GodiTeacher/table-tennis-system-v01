@@ -11,10 +11,11 @@ export type TrainingItem = {
 
 function recommendedLevelsFor(stage: string): TrainingLevelId[] {
   if (stage.includes("全階段")) return ["A", "B", "C", "D", "E", "F"];
-  if (stage.includes("啟蒙") && stage.includes("基礎")) return ["A", "B", "C", "D", "E", "F"];
-  if (stage.includes("基礎") && stage.includes("進階")) return ["B", "C", "D", "E", "F"];
-  if (stage.includes("進階")) return ["C", "D", "E", "F"];
-  if (stage.includes("基礎")) return ["B", "C", "D", "E", "F"];
+  if (stage.includes("啟蒙") && stage.includes("基礎")) return ["A", "B"];
+  if (stage.includes("基礎") && stage.includes("進階")) return ["C", "D", "E"];
+  if (stage.includes("進階")) return ["D", "E", "F"];
+  if (stage.includes("基礎")) return ["B", "C"];
+  if (stage.includes("啟蒙")) return ["A"];
   return ["A", "B", "C", "D", "E", "F"];
 }
 
