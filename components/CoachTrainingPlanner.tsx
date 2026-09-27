@@ -60,21 +60,21 @@ export default function CoachTrainingPlanner() {
     return Array.from({ length: usedTables }, (_, index) => base + (index < extra ? 1 : 0));
   }, [people, tables]);
 
+  const warmupMinutes = minutes >= 60 ? 10 : 5;
+  const cooldownMinutes = minutes >= 60 ? 5 : 0;
+  const trainingMinutes = Math.max(0, minutes - warmupMinutes - cooldownMinutes);
+
   const plannedItems: PlannedItem[] = useMemo(() => {
     if (!selectedItems.length) return [];
-    const warmup = minutes >= 60 ? 10 : 5;
-    const cooldown = minutes >= 60 ? 5 : 0;
-    const usable = Math.max(selectedItems.length * 5, minutes - warmup - cooldown);
-    const base = Math.floor(usable / selectedItems.length);
-    const extra = usable % selectedItems.length;
+    const base = Math.floor(trainingMinutes / selectedItems.length);
+    const extra = trainingMinutes % selectedItems.length;
     return selectedItems.map((item, index) => ({
       id: item.id,
       minutes: base + (index < extra ? 1 : 0),
     }));
-  }, [minutes, selectedItems]);
+  }, [trainingMinutes, selectedItems]);
 
-  const warmupMinutes = minutes >= 60 ? 10 : 5;
-  const cooldownMinutes = minutes >= 60 ? 5 : 0;
+  const shortItemWarning = selectedItems.length > 0 && trainingMinutes < selectedItems.length * 5;
 
   return (
     <main className="shell">
@@ -135,6 +135,7 @@ export default function CoachTrainingPlanner() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>05</span><h2>今日自動課表</h2></div><strong>{minutes} 分鐘</strong></div>
+        {shortItemWarning && <div className="notice"><b>項目較多：</b>目前主訓練時間不足以讓每項都有 5 分鐘，可減少項目或增加總訓練時間。</div>}
         {!selectedItems.length ? <p className="muted">先選擇至少一個訓練項目。</p> : (
           <div className="scheduleList">
             <div className="scheduleRow fixed"><span className="orderBadge">暖身</span><div><b>動態暖身＋球感啟動</b><small>固定流程</small></div><strong>{warmupMinutes} 分</strong></div>
@@ -155,7 +156,7 @@ export default function CoachTrainingPlanner() {
             {cooldownMinutes > 0 && <div className="scheduleRow fixed"><span className="orderBadge">收操</span><div><b>緩和＋身體回報</b><small>固定流程</small></div><strong>{cooldownMinutes} 分</strong></div>}
           </div>
         )}
-        <p className="muted">時間目前採平均分配作為 V01 預設；教練可先調整項目順序，下一版再加入每項分鐘數手動微調與智慧權重。</p>
+        <p className="muted">課表分鐘數永遠以總訓練時間為上限；目前平均分配，下一版加入每項分鐘數手動微調與智慧權重。</p>
       </section>
 
       <section className="card selected">
