@@ -25,14 +25,26 @@ function clampNumber(value: string, min: number, fallback: number) {
   return Math.max(min, Math.floor(parsed));
 }
 
-export default function DailyTrainingWorkspace({ students }: { students: Student[] }) {
+export default function DailyTrainingWorkspace({
+  students,
+  initialItemIds = [],
+}: {
+  students: Student[];
+  initialItemIds?: string[];
+}) {
+  const validInitialItems = initialItemIds
+    .filter((id, index, array) => array.indexOf(id) === index)
+    .filter((id) => TRAINING_ITEMS.some((item) => item.id === id))
+    .slice(0, 8);
+  const startingItems = validInitialItems.length ? validInitialItems : DEFAULT_ITEMS;
+
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(() => new Set(students.map((s) => s.id)));
   const [activeLevel, setActiveLevel] = useState<TrainingLevelId>('B');
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(DEFAULT_ITEMS));
-  const [planOrder, setPlanOrder] = useState<string[]>(DEFAULT_ITEMS);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(startingItems));
+  const [planOrder, setPlanOrder] = useState<string[]>(startingItems);
   const [minutesInput, setMinutesInput] = useState('90');
   const [tablesInput, setTablesInput] = useState('3');
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(validInitialItems.length > 0);
   const [saveState, saveAction, isSaving] = useActionState(saveTrainingSession, INITIAL_SAVE_STATE);
 
   const attendance = students.filter((student) => selectedStudents.has(student.id));
@@ -176,6 +188,7 @@ export default function DailyTrainingWorkspace({ students }: { students: Student
 
       <section className="card">
         <div className="sectionTitle"><div><span>02</span><h2>程度與訓練項目</h2></div><strong>{selectedItems.length} 項已選</strong></div>
+        {validInitialItems.length ? <div className="notice successNotice"><b>能力建議已帶入：</b>目前預先選了 {validInitialItems.length} 個較需要加強的技能；教練仍可自由增減。</div> : null}
         <div className="levelGrid">
           {TRAINING_LEVELS.map((level) => <button type="button" key={level.id} className={activeLevel === level.id ? 'level active' : 'level'} onClick={() => setActiveLevel(level.id)}>
             <b>{level.id}</b><span>{level.name}</span><small>{level.description}</small>
