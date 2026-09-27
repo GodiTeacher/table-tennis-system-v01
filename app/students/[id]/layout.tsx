@@ -16,8 +16,8 @@ export default async function StudentLayout({
         style={{
           position: 'fixed',
           right: 18,
-          bottom: 22,
-          zIndex: 50,
+          bottom: 92,
+          zIndex: 90,
           textDecoration: 'none',
           background: '#273444',
           color: '#fff',
