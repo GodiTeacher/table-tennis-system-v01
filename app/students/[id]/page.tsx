@@ -60,6 +60,20 @@ function AssessmentForm({ studentId, skillId, progress, compact = false }: { stu
   );
 }
 
+function buildDomainStats(skills: SkillRow[], progressMap: Map<string, SkillProgress>) {
+  return DOMAIN_ORDER.map((name) => {
+    const domainSkills = skills.filter((skill) => skill.domain === name);
+    const assessed = domainSkills
+      .map((skill) => progressMap.get(skill.id))
+      .filter((progress): progress is SkillProgress => Boolean(progress && progress.level_value != null));
+    const avg = assessed.length
+      ? assessed.reduce((sum, progress) => sum + (progress.level_value ?? 0), 0) / assessed.length
+      : null;
+    const mastered = assessed.filter((progress) => progress.status === 'mastered').length;
+    return { name, total: domainSkills.length, assessed: assessed.length, avg, mastered };
+  });
+}
+
 export default async function StudentProfilePage({
   params,
   searchParams,
@@ -102,9 +116,20 @@ export default async function StudentProfilePage({
 
   const skills = (allSkills ?? []) as SkillRow[];
   const skillMap = new Map(skills.map((skill) => [skill.id, skill]));
+  const rows = (progressRows ?? []) as SkillProgress[];
+
   const latestProgress = new Map<string, SkillProgress>();
-  for (const row of (progressRows ?? []) as SkillProgress[]) {
+  for (const row of rows) {
     if (!latestProgress.has(row.skill_id)) latestProgress.set(row.skill_id, row);
+  }
+
+  const comparisonCutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const previousProgress = new Map<string, SkillProgress>();
+  for (const row of rows) {
+    const assessedAt = new Date(row.assessed_at).getTime();
+    if (Number.isFinite(assessedAt) && assessedAt <= comparisonCutoff && !previousProgress.has(row.skill_id)) {
+      previousProgress.set(row.skill_id, row);
+    }
   }
 
   const practiceMap = new Map<string, { count: number; minutes: number }>();
@@ -119,19 +144,23 @@ export default async function StudentProfilePage({
     .map(([skillId, stats]) => ({ skillId, stats, skill: skillMap.get(skillId), progress: latestProgress.get(skillId) }))
     .sort((a, b) => b.stats.count - a.stats.count || b.stats.minutes - a.stats.minutes || (a.skill?.name ?? a.skillId).localeCompare(b.skill?.name ?? b.skillId, 'zh-Hant'));
 
-  const domainStats = DOMAIN_ORDER.map((name) => {
-    const domainSkills = skills.filter((skill) => skill.domain === name);
-    const assessed = domainSkills
-      .map((skill) => latestProgress.get(skill.id))
-      .filter((progress): progress is SkillProgress => Boolean(progress && progress.level_value != null));
-    const avg = assessed.length
-      ? assessed.reduce((sum, progress) => sum + (progress.level_value ?? 0), 0) / assessed.length
-      : null;
-    const mastered = assessed.filter((progress) => progress.status === 'mastered').length;
-    return { name, total: domainSkills.length, assessed: assessed.length, avg, mastered };
+  const domainStats = buildDomainStats(skills, latestProgress);
+  const previousDomainStats = buildDomainStats(skills, previousProgress);
+  const radarDomains = domainStats.map((domain) => ({ name: domain.name, value: domain.avg, assessed: domain.assessed, total: domain.total }));
+  const previousRadarDomains = previousDomainStats.map((domain) => ({ name: domain.name, value: domain.avg, assessed: domain.assessed, total: domain.total }));
+  const hasHistoricalBaseline = previousProgress.size > 0;
+
+  const trendStats = domainStats.map((domain, index) => {
+    const previous = previousDomainStats[index];
+    const delta = domain.avg != null && previous?.avg != null ? domain.avg - previous.avg : null;
+    return { ...domain, previousAvg: previous?.avg ?? null, delta };
   });
 
-  const radarDomains = domainStats.map((domain) => ({ name: domain.name, value: domain.avg, assessed: domain.assessed, total: domain.total }));
+  const comparableTrends = trendStats.filter((trend) => trend.delta != null);
+  const overallTrend = comparableTrends.length
+    ? comparableTrends.reduce((sum, trend) => sum + (trend.delta ?? 0), 0) / comparableTrends.length
+    : null;
+
   const assessedDomains = domainStats.filter((domain) => domain.avg != null);
   const weakestDomain = assessedDomains.length ? [...assessedDomains].sort((a, b) => (a.avg ?? 99) - (b.avg ?? 99))[0] : null;
   const incompleteDomains = domainStats.filter((domain) => domain.total > 0 && domain.assessed < domain.total);
@@ -148,7 +177,7 @@ export default async function StudentProfilePage({
   return (
     <>
       <style>{`
-        .studentStatsGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.statCard{background:#fff;border:1px solid #e5e9ef;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(24,33,47,.045)}.statCard span{display:block;color:#6b7789;font-size:13px;font-weight:800}.statCard strong{font-size:34px;line-height:1.2;margin-top:6px;display:inline-block}.statCard small{margin-left:5px;color:#718096}.skillProgressList{display:flex;flex-direction:column;gap:9px}.skillProgressRow{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;align-items:start;gap:14px;border:1px solid #e2e7ee;border-radius:15px;padding:13px 14px}.skillProgressMain b{display:block}.skillProgressMain small,.skillPracticeStats small,.skillStatus small{display:block;color:#738093;margin-top:4px}.skillPracticeStats{text-align:center;padding-top:4px}.skillPracticeStats strong{font-size:22px}.skillPracticeStats span{font-size:12px;margin-left:3px;color:#718096}.skillStatus{border-radius:11px;background:#f4f6f8;padding:9px 10px;text-align:center}.skillStatus.assessed{background:#edf8f2;color:#286846}.historyRowRight{display:flex;align-items:center;gap:14px}.historyRowRight span{color:#526276;font-weight:800}.assessmentDetails{margin-top:10px;border-top:1px solid #e7ebf0;padding-top:10px}.assessmentDetails summary{cursor:pointer;font-weight:800;color:#273444;list-style:none;display:inline-flex;align-items:center;gap:6px}.assessmentDetails summary::-webkit-details-marker{display:none}.assessmentForm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.assessmentForm label{font-size:12px;font-weight:800;color:#647184}.assessmentForm select,.assessmentForm textarea{width:100%;margin-top:6px;border:1px solid #dce2ea;border-radius:10px;padding:10px;font:inherit;background:#fff}.assessmentForm textarea{grid-column:1/-1;resize:vertical;min-height:72px}.assessmentForm button{grid-column:1/-1}.assessmentObservation{margin-top:7px;color:#667386;font-size:13px;line-height:1.5}.abilityLayout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:18px;align-items:start}.domainGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.domainCard{border:1px solid #e2e7ee;border-radius:15px;padding:14px}.domainCardTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.domainCardTop strong{font-size:22px}.domainCard small{color:#718096}.domainBar{height:7px;background:#edf1f5;border-radius:999px;margin:12px 0 8px;overflow:hidden}.domainBar span{display:block;height:100%;background:#273444;border-radius:999px}.radarWrap{background:#fbfcfe;border:1px solid #e2e7ee;border-radius:18px;padding:10px}.radarChart{display:block;width:100%;max-width:420px;margin:auto}.radarLabel{font-size:11px;font-weight:800;fill:#273444}.radarValue{font-size:10px;fill:#718096}.radarLegend{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:2px 10px 10px}.radarLegend div{display:flex;justify-content:space-between;gap:8px;font-size:11px}.radarLegend span{color:#718096}.nextStepGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.nextStepBox{border:1px solid #e2e7ee;border-radius:15px;padding:14px;background:#fbfcfe}.baselineDomain{border:1px solid #e2e7ee;border-radius:16px;margin-top:10px;overflow:hidden}.baselineDomain>summary{cursor:pointer;padding:14px 16px;font-weight:900;background:#f7f9fb}.baselineSkillList{padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px}.baselineSkill{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e5e9ef;border-radius:13px;padding:11px}.baselineSkill b{display:block}.baselineSkill small{display:block;color:#738093;margin-top:3px}.baselineSkill details{min-width:260px}.baselineSkill details summary{cursor:pointer;font-weight:800;color:#273444}.compactAssessmentForm{grid-template-columns:1fr 1fr auto;align-items:end;margin-top:8px}.compactAssessmentForm button{grid-column:auto;height:40px}.compactAssessmentForm label{min-width:110px}@media(max-width:900px){.abilityLayout{grid-template-columns:1fr}.baselineSkill{grid-template-columns:1fr}.baselineSkill details{min-width:0}}@media(max-width:780px){.studentStatsGrid{grid-template-columns:1fr 1fr}.skillProgressRow{grid-template-columns:minmax(0,1fr) 75px}.skillStatus{grid-column:1/-1;text-align:left}.domainGrid,.nextStepGrid{grid-template-columns:1fr}}@media(max-width:520px){.studentStatsGrid{grid-template-columns:1fr 1fr}.statCard{padding:14px}.statCard strong{font-size:28px}.skillProgressRow{grid-template-columns:minmax(0,1fr) 66px}.historyRowRight{flex-direction:column;align-items:flex-end;gap:3px}.assessmentForm{grid-template-columns:1fr}.assessmentForm textarea,.assessmentForm button{grid-column:auto}.radarLegend{grid-template-columns:1fr}.compactAssessmentForm{grid-template-columns:1fr}.compactAssessmentForm button{width:100%}}
+        .studentStatsGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.statCard{background:#fff;border:1px solid #e5e9ef;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(24,33,47,.045)}.statCard span{display:block;color:#6b7789;font-size:13px;font-weight:800}.statCard strong{font-size:34px;line-height:1.2;margin-top:6px;display:inline-block}.statCard small{margin-left:5px;color:#718096}.skillProgressList{display:flex;flex-direction:column;gap:9px}.skillProgressRow{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;align-items:start;gap:14px;border:1px solid #e2e7ee;border-radius:15px;padding:13px 14px}.skillProgressMain b{display:block}.skillProgressMain small,.skillPracticeStats small,.skillStatus small{display:block;color:#738093;margin-top:4px}.skillPracticeStats{text-align:center;padding-top:4px}.skillPracticeStats strong{font-size:22px}.skillPracticeStats span{font-size:12px;margin-left:3px;color:#718096}.skillStatus{border-radius:11px;background:#f4f6f8;padding:9px 10px;text-align:center}.skillStatus.assessed{background:#edf8f2;color:#286846}.historyRowRight{display:flex;align-items:center;gap:14px}.historyRowRight span{color:#526276;font-weight:800}.assessmentDetails{margin-top:10px;border-top:1px solid #e7ebf0;padding-top:10px}.assessmentDetails summary{cursor:pointer;font-weight:800;color:#273444;list-style:none;display:inline-flex;align-items:center;gap:6px}.assessmentDetails summary::-webkit-details-marker{display:none}.assessmentForm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.assessmentForm label{font-size:12px;font-weight:800;color:#647184}.assessmentForm select,.assessmentForm textarea{width:100%;margin-top:6px;border:1px solid #dce2ea;border-radius:10px;padding:10px;font:inherit;background:#fff}.assessmentForm textarea{grid-column:1/-1;resize:vertical;min-height:72px}.assessmentForm button{grid-column:1/-1}.assessmentObservation{margin-top:7px;color:#667386;font-size:13px;line-height:1.5}.abilityLayout{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:18px;align-items:start}.domainGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.domainCard{border:1px solid #e2e7ee;border-radius:15px;padding:14px}.domainCardTop{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.domainCardTop strong{font-size:22px}.domainCard small{color:#718096}.domainBar{height:7px;background:#edf1f5;border-radius:999px;margin:12px 0 8px;overflow:hidden}.domainBar span{display:block;height:100%;background:#273444;border-radius:999px}.radarWrap{background:#fbfcfe;border:1px solid #e2e7ee;border-radius:18px;padding:10px}.radarChart{display:block;width:100%;max-width:420px;margin:auto}.radarLabel{font-size:11px;font-weight:800;fill:#273444}.radarValue{font-size:10px;fill:#718096}.radarLegend{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;padding:2px 10px 10px}.radarLegend div{display:flex;justify-content:space-between;gap:8px;font-size:11px}.radarLegend span{color:#718096}.radarCompareLegend{display:flex;justify-content:center;gap:18px;margin:-4px 0 10px;font-size:12px;font-weight:800;color:#667386}.radarCompareLegend span{display:flex;align-items:center;gap:7px}.radarCompareLegend i{display:inline-block;width:22px;height:0;border-top:3px solid #273444}.radarCompareLegend .radarLegendPrevious{border-top:2px dashed #8a96a6}.abilityTrendGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.trendCard{border:1px solid #e2e7ee;border-radius:15px;padding:14px;background:#fbfcfe}.trendCardTop{display:flex;justify-content:space-between;gap:12px;align-items:center}.trendCardTop b{font-size:14px}.trendDelta{font-size:18px;font-weight:900}.trendDelta.up{color:#286846}.trendDelta.down{color:#a23b32}.trendDelta.flat{color:#667386}.trendValues{display:flex;gap:10px;margin-top:10px;font-size:12px;color:#718096}.trendSummary{margin-top:12px;padding:12px 14px;border-radius:13px;background:#f7f9fb;color:#526276}.nextStepGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.nextStepBox{border:1px solid #e2e7ee;border-radius:15px;padding:14px;background:#fbfcfe}.baselineDomain{border:1px solid #e2e7ee;border-radius:16px;margin-top:10px;overflow:hidden}.baselineDomain>summary{cursor:pointer;padding:14px 16px;font-weight:900;background:#f7f9fb}.baselineSkillList{padding:8px 12px 12px;display:flex;flex-direction:column;gap:8px}.baselineSkill{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid #e5e9ef;border-radius:13px;padding:11px}.baselineSkill b{display:block}.baselineSkill small{display:block;color:#738093;margin-top:3px}.baselineSkill details{min-width:260px}.baselineSkill details summary{cursor:pointer;font-weight:800;color:#273444}.compactAssessmentForm{grid-template-columns:1fr 1fr auto;align-items:end;margin-top:8px}.compactAssessmentForm button{grid-column:auto;height:40px}.compactAssessmentForm label{min-width:110px}@media(max-width:900px){.abilityLayout{grid-template-columns:1fr}.baselineSkill{grid-template-columns:1fr}.baselineSkill details{min-width:0}.abilityTrendGrid{grid-template-columns:1fr 1fr}}@media(max-width:780px){.studentStatsGrid{grid-template-columns:1fr 1fr}.skillProgressRow{grid-template-columns:minmax(0,1fr) 75px}.skillStatus{grid-column:1/-1;text-align:left}.domainGrid,.nextStepGrid{grid-template-columns:1fr}}@media(max-width:520px){.studentStatsGrid{grid-template-columns:1fr 1fr}.statCard{padding:14px}.statCard strong{font-size:28px}.skillProgressRow{grid-template-columns:minmax(0,1fr) 66px}.historyRowRight{flex-direction:column;align-items:flex-end;gap:3px}.assessmentForm{grid-template-columns:1fr}.assessmentForm textarea,.assessmentForm button{grid-column:auto}.radarLegend{grid-template-columns:1fr}.compactAssessmentForm{grid-template-columns:1fr}.compactAssessmentForm button{width:100%}.abilityTrendGrid{grid-template-columns:1fr}}
       `}</style>
       <main className="shell">
         <section className="hero compactHero">
@@ -168,10 +197,10 @@ export default async function StudentProfilePage({
         </section>
 
         <section className="card">
-          <div className="sectionTitle"><div><span>01</span><h2>六大面向能力地圖</h2></div><strong>V2</strong></div>
-          <div className="notice"><b>六角形雷達圖：</b>依每個面向最新技能評量的 1～5 級平均計算；尚未評量不計入平均。系統上線前已具備的能力，也可以在下方「既有能力補登」直接補入。</div>
+          <div className="sectionTitle"><div><span>01</span><h2>六大面向能力地圖</h2></div><strong>V3</strong></div>
+          <div className="notice"><b>六角形雷達圖：</b>依每個面向最新技能評量的 1～5 級平均計算；若 30 天前已有評量，灰色虛線會顯示當時能力，方便直接比較成長。</div>
           <div className="abilityLayout">
-            <AbilityRadar domains={radarDomains} />
+            <AbilityRadar domains={radarDomains} comparisonDomains={hasHistoricalBaseline ? previousRadarDomains : undefined} />
             <div className="domainGrid">
               {domainStats.map((domain) => (
                 <div className="domainCard" key={domain.name}>
@@ -185,7 +214,30 @@ export default async function StudentProfilePage({
         </section>
 
         <section className="card">
-          <div className="sectionTitle"><div><span>02</span><h2>下一步建議</h2></div></div>
+          <div className="sectionTitle"><div><span>02</span><h2>能力歷史變化</h2></div><strong>30 天比較</strong></div>
+          {!hasHistoricalBaseline ? (
+            <div className="notice"><b>尚無可比較基準：</b>目前還沒有 30 天前的評量資料。之後持續使用系統評量，這裡會自動開始顯示能力升降。</div>
+          ) : (
+            <>
+              <div className="abilityTrendGrid">
+                {trendStats.map((trend) => {
+                  const deltaClass = trend.delta == null ? 'flat' : trend.delta > 0.05 ? 'up' : trend.delta < -0.05 ? 'down' : 'flat';
+                  const deltaText = trend.delta == null ? '—' : `${trend.delta > 0 ? '+' : ''}${trend.delta.toFixed(1)}`;
+                  return <div className="trendCard" key={trend.name}>
+                    <div className="trendCardTop"><b>{trend.name}</b><span className={`trendDelta ${deltaClass}`}>{deltaText}</span></div>
+                    <div className="trendValues"><span>30 天前 {trend.previousAvg == null ? '—' : trend.previousAvg.toFixed(1)}</span><span>目前 {trend.avg == null ? '—' : trend.avg.toFixed(1)}</span></div>
+                  </div>;
+                })}
+              </div>
+              <div className="trendSummary">
+                {overallTrend == null ? '目前可比較的面向仍不足。' : overallTrend > 0.05 ? `整體能力平均較 30 天前提升約 ${overallTrend.toFixed(1)} 級。` : overallTrend < -0.05 ? `整體能力平均較 30 天前下降約 ${Math.abs(overallTrend).toFixed(1)} 級，可搭配近期訓練內容檢查原因。` : '整體能力與 30 天前大致持平，可從單一面向與技能細項觀察變化。'}
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="card">
+          <div className="sectionTitle"><div><span>03</span><h2>下一步建議</h2></div></div>
           <div className="nextStepGrid">
             <div className="nextStepBox"><b>目前優先加強面向</b><p className="muted">{weakestDomain ? <><strong>{weakestDomain.name}</strong>目前平均 {weakestDomain.avg?.toFixed(1)} / 5，可優先從這個面向已練過、但評量較低的技能安排下一輪訓練。</> : '目前尚無足夠評量資料，先完成既有能力補登。'}</p></div>
             <div className="nextStepBox"><b>評量完整度</b><p className="muted">{incompleteDomains.length ? <>目前仍有 {incompleteDomains.length} 個面向尚未完成評量，建議先補：{incompleteDomains.slice(0, 3).map((d) => d.name).join('、')}。</> : '目前已建置面向皆完成評量。'}</p></div>
@@ -193,7 +245,7 @@ export default async function StudentProfilePage({
         </section>
 
         <section className="card">
-          <div className="sectionTitle"><div><span>03</span><h2>既有能力補登</h2></div><strong>{latestProgress.size}/{skills.length} 項</strong></div>
+          <div className="sectionTitle"><div><span>04</span><h2>既有能力補登</h2></div><strong>{latestProgress.size}/{skills.length} 項</strong></div>
           <div className="notice"><b>用途：</b>適合系統正式上線前就已經有一定程度的學生。即使技能從來沒有在系統課表出現過，教練仍可直接補登能力；之後新的評量會繼續保留歷史。</div>
           {skillsByDomain.map(({ domain, skills: domainSkills }) => (
             <details className="baselineDomain" key={domain}>
@@ -215,7 +267,7 @@ export default async function StudentProfilePage({
         </section>
 
         <section className="card">
-          <div className="sectionTitle"><div><span>04</span><h2>技能訓練累積</h2></div><strong>{practicedSkills.length} 項</strong></div>
+          <div className="sectionTitle"><div><span>05</span><h2>技能訓練累積</h2></div><strong>{practicedSkills.length} 項</strong></div>
           <div className="notice"><b>教練評量：</b>展開技能即可設定「學習狀態、1～5 等級、觀察紀錄」。每次儲存都會保留歷史評量，個人頁顯示最新一次。</div>
           {!practicedSkills.length ? <p className="muted">目前還沒有訓練紀錄。學生參加課程後，技能累積會自動出現在這裡。</p> : (
             <div className="skillProgressList">
@@ -242,7 +294,7 @@ export default async function StudentProfilePage({
         </section>
 
         <section className="card">
-          <div className="sectionTitle"><div><span>05</span><h2>最近訓練</h2></div><strong>{totalSessions} 筆</strong></div>
+          <div className="sectionTitle"><div><span>06</span><h2>最近訓練</h2></div><strong>{totalSessions} 筆</strong></div>
           {!sessions?.length ? <p className="muted">目前尚無訓練紀錄。</p> : (
             <div className="historyList">
               {sessions.slice(0, 10).map((session) => {
