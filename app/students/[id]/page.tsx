@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { saveSkillAssessment } from './actions';
 
 type SkillProgress = {
   skill_id: string;
@@ -17,8 +18,15 @@ const STATUS_TEXT: Record<string, string> = {
   mastered: '已掌握',
 };
 
-export default async function StudentProfilePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function StudentProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { id } = await params;
+  const query = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
@@ -79,7 +87,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
   return (
     <>
       <style>{`
-        .studentStatsGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.statCard{background:#fff;border:1px solid #e5e9ef;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(24,33,47,.045)}.statCard span{display:block;color:#6b7789;font-size:13px;font-weight:800}.statCard strong{font-size:34px;line-height:1.2;margin-top:6px;display:inline-block}.statCard small{margin-left:5px;color:#718096}.skillProgressList{display:flex;flex-direction:column;gap:9px}.skillProgressRow{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;align-items:center;gap:14px;border:1px solid #e2e7ee;border-radius:15px;padding:13px 14px}.skillProgressMain b{display:block}.skillProgressMain small,.skillPracticeStats small,.skillStatus small{display:block;color:#738093;margin-top:4px}.skillPracticeStats{text-align:center}.skillPracticeStats strong{font-size:22px}.skillPracticeStats span{font-size:12px;margin-left:3px;color:#718096}.skillStatus{border-radius:11px;background:#f4f6f8;padding:9px 10px;text-align:center}.skillStatus.assessed{background:#edf8f2;color:#286846}.historyRowRight{display:flex;align-items:center;gap:14px}.historyRowRight span{color:#526276;font-weight:800}.studentProfileLinkRow{margin-bottom:12px}.studentProfileLink{display:flex;justify-content:space-between;gap:14px;align-items:center;text-decoration:none;color:inherit;background:#f7f9fb;border-radius:12px;padding:10px 12px}.studentProfileLink small{color:#526276;font-weight:700}.historyStudentLink{display:grid;grid-template-columns:1fr auto;text-decoration:none;color:inherit;background:#fff;border-radius:12px;padding:10px 11px}.historyStudentLink small{grid-column:1;display:block;color:#738093;margin-top:3px}.historyStudentLink span{grid-column:2;grid-row:1/3;align-self:center;color:#526276;font-size:12px;font-weight:800}@media(max-width:780px){.studentStatsGrid{grid-template-columns:1fr 1fr}.skillProgressRow{grid-template-columns:minmax(0,1fr) 75px}.skillStatus{grid-column:1/-1;text-align:left}}@media(max-width:520px){.studentStatsGrid{grid-template-columns:1fr 1fr}.statCard{padding:14px}.statCard strong{font-size:28px}.skillProgressRow{grid-template-columns:minmax(0,1fr) 66px}.historyRowRight{flex-direction:column;align-items:flex-end;gap:3px}}
+        .studentStatsGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}.statCard{background:#fff;border:1px solid #e5e9ef;border-radius:18px;padding:18px;box-shadow:0 8px 24px rgba(24,33,47,.045)}.statCard span{display:block;color:#6b7789;font-size:13px;font-weight:800}.statCard strong{font-size:34px;line-height:1.2;margin-top:6px;display:inline-block}.statCard small{margin-left:5px;color:#718096}.skillProgressList{display:flex;flex-direction:column;gap:9px}.skillProgressRow{display:grid;grid-template-columns:minmax(0,1fr) 90px 120px;align-items:start;gap:14px;border:1px solid #e2e7ee;border-radius:15px;padding:13px 14px}.skillProgressMain b{display:block}.skillProgressMain small,.skillPracticeStats small,.skillStatus small{display:block;color:#738093;margin-top:4px}.skillPracticeStats{text-align:center;padding-top:4px}.skillPracticeStats strong{font-size:22px}.skillPracticeStats span{font-size:12px;margin-left:3px;color:#718096}.skillStatus{border-radius:11px;background:#f4f6f8;padding:9px 10px;text-align:center}.skillStatus.assessed{background:#edf8f2;color:#286846}.historyRowRight{display:flex;align-items:center;gap:14px}.historyRowRight span{color:#526276;font-weight:800}.assessmentDetails{margin-top:10px;border-top:1px solid #e7ebf0;padding-top:10px}.assessmentDetails summary{cursor:pointer;font-weight:800;color:#273444;list-style:none;display:inline-flex;align-items:center;gap:6px}.assessmentDetails summary::-webkit-details-marker{display:none}.assessmentForm{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.assessmentForm label{font-size:12px;font-weight:800;color:#647184}.assessmentForm select,.assessmentForm textarea{width:100%;margin-top:6px;border:1px solid #dce2ea;border-radius:10px;padding:10px;font:inherit;background:#fff}.assessmentForm textarea{grid-column:1/-1;resize:vertical;min-height:72px}.assessmentForm button{grid-column:1/-1}.assessmentObservation{margin-top:7px;color:#667386;font-size:13px;line-height:1.5}@media(max-width:780px){.studentStatsGrid{grid-template-columns:1fr 1fr}.skillProgressRow{grid-template-columns:minmax(0,1fr) 75px}.skillStatus{grid-column:1/-1;text-align:left}}@media(max-width:520px){.studentStatsGrid{grid-template-columns:1fr 1fr}.statCard{padding:14px}.statCard strong{font-size:28px}.skillProgressRow{grid-template-columns:minmax(0,1fr) 66px}.historyRowRight{flex-direction:column;align-items:flex-end;gap:3px}.assessmentForm{grid-template-columns:1fr}.assessmentForm textarea,.assessmentForm button{grid-column:auto}}
       `}</style>
       <main className="shell">
         <section className="hero compactHero">
@@ -88,6 +96,8 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
           <p>{meta} · {student.active ? '啟用中' : '已停用'}</p>
           <div className="topNav"><Link href="/students">學生管理</Link><Link href="/today">今日訓練</Link><Link href="/history">歷史訓練</Link></div>
         </section>
+
+        {query.error ? <div className="notice errorNotice"><b>評量儲存失敗：</b>{query.error}</div> : null}
 
         <section className="studentStatsGrid">
           <div className="statCard"><span>訓練出席</span><strong>{totalSessions}</strong><small>次</small></div>
@@ -98,6 +108,7 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
 
         <section className="card">
           <div className="sectionTitle"><div><span>01</span><h2>技能訓練累積</h2></div><strong>{practicedSkills.length} 項</strong></div>
+          <div className="notice"><b>教練評量：</b>展開技能即可設定「學習狀態、1～5 等級、觀察紀錄」。每次儲存都會保留歷史評量，個人頁顯示最新一次。</div>
           {!practicedSkills.length ? <p className="muted">目前還沒有訓練紀錄。學生參加課程後，技能累積會自動出現在這裡。</p> : (
             <div className="skillProgressList">
               {practicedSkills.map(({ skillId, skill, stats, progress }) => (
@@ -105,6 +116,29 @@ export default async function StudentProfilePage({ params }: { params: Promise<{
                   <div className="skillProgressMain">
                     <b>{skill?.name ?? skillId}</b>
                     <small>{skill ? `${skill.domain}${skill.subcategory ? ` · ${skill.subcategory}` : ''}` : '技能資料未找到'}</small>
+                    {progress?.observation ? <div className="assessmentObservation">最近觀察：{progress.observation}</div> : null}
+                    <details className="assessmentDetails">
+                      <summary>✎ {progress ? '更新評量' : '新增評量'}</summary>
+                      <form action={saveSkillAssessment} className="assessmentForm">
+                        <input type="hidden" name="student_id" value={student.id} />
+                        <input type="hidden" name="skill_id" value={skillId} />
+                        <label>學習狀態
+                          <select name="status" defaultValue={progress?.status ?? 'learning'}>
+                            <option value="learning">學習中</option>
+                            <option value="developing">發展中</option>
+                            <option value="stable">穩定</option>
+                            <option value="mastered">已掌握</option>
+                          </select>
+                        </label>
+                        <label>能力等級
+                          <select name="level_value" defaultValue={progress?.level_value ?? 1}>
+                            {[1,2,3,4,5].map((level) => <option value={level} key={level}>{level} 級</option>)}
+                          </select>
+                        </label>
+                        <textarea name="observation" defaultValue={progress?.observation ?? ''} placeholder="教練觀察，例如：定點穩定，但移動後擊球成功率下降。" maxLength={500} />
+                        <button className="primaryButton">儲存此技能評量</button>
+                      </form>
+                    </details>
                   </div>
                   <div className="skillPracticeStats"><strong>{stats.count}</strong><span>次</span><small>{stats.minutes} 分</small></div>
                   <div className={progress ? 'skillStatus assessed' : 'skillStatus'}>
