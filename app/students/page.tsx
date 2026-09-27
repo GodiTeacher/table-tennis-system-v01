@@ -61,6 +61,12 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
           <div className="studentList">
             {students.map((student) => (
               <div className={`studentManageCard ${student.active ? '' : 'inactive'}`} key={student.id}>
+                <div className="studentProfileLinkRow">
+                  <Link href={`/students/${student.id}`} className="studentProfileLink">
+                    <b>{student.display_name}</b>
+                    <small>查看個人訓練與技能成長 ›</small>
+                  </Link>
+                </div>
                 <form action={updateStudent} className="studentEditGrid">
                   <input type="hidden" name="id" value={student.id} />
                   <label>姓名<input name="display_name" defaultValue={student.display_name} required maxLength={30} /></label>
