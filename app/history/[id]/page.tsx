@@ -78,7 +78,11 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
                   {(rows ?? []).map((row) => {
                     const student = studentMap.get(row.student_id);
                     const meta = student ? [student.grade ? `${student.grade}年級` : null, student.class_name, student.gender].filter(Boolean).join(' · ') : '';
-                    return <div key={row.student_id}><b>{student?.display_name ?? '未知學生'}</b>{meta ? <small>{meta}</small> : null}</div>;
+                    return student ? (
+                      <Link href={`/students/${student.id}`} key={row.student_id} className="historyStudentLink">
+                        <b>{student.display_name}</b>{meta ? <small>{meta}</small> : null}<span>個人頁 ›</span>
+                      </Link>
+                    ) : <div key={row.student_id}><b>未知學生</b></div>;
                   })}
                 </div>
               </div>
