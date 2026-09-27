@@ -97,7 +97,7 @@ export default function DailyTrainingWorkspace({ students }: { students: Student
   }
 
   function restoreDefaults() {
-    setSelectedStudents(new Set(students.map((student) => student.id));
+    setSelectedStudents(new Set(students.map((student) => student.id)));
     setActiveLevel('B');
     setSelectedItemIds(new Set(DEFAULT_ITEMS));
     setPlanOrder(DEFAULT_ITEMS);
