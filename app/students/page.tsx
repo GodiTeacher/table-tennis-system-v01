@@ -23,7 +23,10 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <div className="eyebrow">TABLE TENNIS SYSTEM V01</div>
         <h1>學生名單</h1>
         <p>先建立球隊學生資料。下一步會直接從這份名單勾選「今日到課」，再自動帶入訓練課表與分桌。</p>
-        <div className="topNav"><Link href="/">訓練規劃</Link><button formAction={signOut} className="linkButton">登出</button></div>
+        <div className="topNav">
+          <Link href="/">訓練規劃</Link>
+          <form action={signOut}><button className="linkButton">登出</button></form>
+        </div>
       </section>
 
       <section className="card">
