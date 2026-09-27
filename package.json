@@ -9,7 +9,7 @@
     "dev:vinext": "vinext dev",
     "build:vinext": "vinext build",
     "check:vinext": "vinext check",
-    "deploy": "vinext build && vinext deploy"
+    "deploy": "npx @vinext/cloudflare deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
