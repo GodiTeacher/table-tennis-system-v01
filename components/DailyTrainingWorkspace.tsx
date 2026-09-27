@@ -5,11 +5,18 @@ import { TRAINING_LEVELS, type TrainingLevelId } from '@/lib/training-levels';
 import { TRAINING_ITEMS, getItemsForLevel } from '@/lib/training-items';
 import { saveTrainingSession, type SaveTrainingState } from '@/app/today/actions';
 
-type Student = { id: string; display_name: string };
+type Student = {
+  id: string;
+  display_name: string;
+  grade: number | null;
+  class_name: string | null;
+  gender: string | null;
+};
 type PlannedItem = { id: string; minutes: number };
 
 const DEFAULT_ITEMS = ['T03', 'T04', 'F02'];
 const INITIAL_SAVE_STATE: SaveTrainingState = { status: 'idle' };
+const GENDER_ORDER: Record<string, number> = { '男': 0, '女': 1, '其他': 2 };
 
 function clampNumber(value: string, min: number, fallback: number) {
   if (value.trim() === '') return fallback;
@@ -37,6 +44,27 @@ export default function DailyTrainingWorkspace({ students }: { students: Student
     [activeLevel, showAll]
   );
 
+  const attendanceGroups = useMemo(() => {
+    const sorted = [...students].sort((a, b) => {
+      const gradeA = a.grade ?? 99;
+      const gradeB = b.grade ?? 99;
+      if (gradeA !== gradeB) return gradeA - gradeB;
+      const genderA = a.gender ? (GENDER_ORDER[a.gender] ?? 9) : 9;
+      const genderB = b.gender ? (GENDER_ORDER[b.gender] ?? 9) : 9;
+      if (genderA !== genderB) return genderA - genderB;
+      return a.display_name.localeCompare(b.display_name, 'zh-Hant');
+    });
+
+    const groups = new Map<string, Student[]>();
+    for (const student of sorted) {
+      const key = student.grade ? `${student.grade}年級` : '未設定年級';
+      const group = groups.get(key) ?? [];
+      group.push(student);
+      groups.set(key, group);
+    }
+    return [...groups.entries()];
+  }, [students]);
+
   const selectedItems = planOrder
     .filter((id) => selectedItemIds.has(id))
     .map((id) => TRAINING_ITEMS.find((item) => item.id === id))
@@ -57,10 +85,7 @@ export default function DailyTrainingWorkspace({ students }: { students: Student
     if (!selectedItems.length) return [];
     const base = Math.floor(trainingMinutes / selectedItems.length);
     const extra = trainingMinutes % selectedItems.length;
-    return selectedItems.map((item, index) => ({
-      id: item.id,
-      minutes: base + (index < extra ? 1 : 0),
-    }));
+    return selectedItems.map((item, index) => ({ id: item.id, minutes: base + (index < extra ? 1 : 0) }));
   }, [selectedItems, trainingMinutes]);
 
   function toggleStudent(id: string) {
@@ -129,13 +154,22 @@ export default function DailyTrainingWorkspace({ students }: { students: Student
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>今日到課</h2></div><strong>{people} 人</strong></div>
         {!students.length ? <p className="muted">學生名單目前是空的，請先到學生名單新增學生。</p> : (
-          <div className="attendanceGrid">
-            {students.map((student) => {
-              const checked = selectedStudents.has(student.id);
-              return <button type="button" key={student.id} className={checked ? 'attendance checked' : 'attendance'} onClick={() => toggleStudent(student.id)}>
-                <span>{checked ? '✓' : '+'}</span><b>{student.display_name}</b>
-              </button>;
-            })}
+          <div className="attendanceSections">
+            {attendanceGroups.map(([label, groupStudents]) => (
+              <section className="attendanceSection" key={label}>
+                <div className="attendanceSectionTitle"><b>{label}</b><span>{groupStudents.length} 人</span></div>
+                <div className="attendanceGrid">
+                  {groupStudents.map((student) => {
+                    const checked = selectedStudents.has(student.id);
+                    const meta = [student.gender, student.class_name].filter(Boolean).join(' · ');
+                    return <button type="button" key={student.id} className={checked ? 'attendance checked' : 'attendance'} onClick={() => toggleStudent(student.id)}>
+                      <span>{checked ? '✓' : '+'}</span>
+                      <div><b>{student.display_name}</b>{meta ? <small>{meta}</small> : null}</div>
+                    </button>;
+                  })}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </section>
