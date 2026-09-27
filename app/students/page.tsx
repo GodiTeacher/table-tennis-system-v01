@@ -27,6 +27,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Pro
         <p>管理姓名、年級、班級、性別與啟用狀態，也可以直接從 Excel 批次貼上整隊名單。</p>
         <div className="topNav">
           <Link href="/today">今日訓練</Link>
+          <Link href="/history">歷史訓練</Link>
           <Link href="/">訓練規劃</Link>
           <form action={signOut}><button className="linkButton">登出</button></form>
         </div>
