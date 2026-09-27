@@ -3,7 +3,11 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import DailyTrainingWorkspace from '@/components/DailyTrainingWorkspace';
 
-export default async function TodayPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string }> }) {
+export default async function TodayPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; saved?: string; student?: string; skills?: string; source?: string }>;
+}) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -23,6 +27,9 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
     .order('gender', { ascending: true, nullsFirst: false })
     .order('display_name');
 
+  const suggestedSkillIds = (params.skills ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  const sourceStudent = params.student ? (students ?? []).find((student) => student.id === params.student) : null;
+
   return (
     <main className="shell">
       <section className="hero compactHero">
@@ -31,9 +38,10 @@ export default async function TodayPage({ searchParams }: { searchParams: Promis
         <p>從到課名單開始，直接完成今日訓練項目、時間、分桌與課表儲存。</p>
         <div className="topNav"><Link href="/students">學生名單</Link><Link href="/history">歷史訓練</Link><Link href="/">原型規劃器</Link></div>
       </section>
+      {params.source === 'ability' ? <div className="notice successNotice"><b>已帶入能力建議：</b>{sourceStudent ? `${sourceStudent.display_name} 的` : ''}低評量技能已預先加入今日訓練，可再自行增減項目與到課學生。</div> : null}
       {params.saved ? <div className="notice successNotice"><b>已儲存：</b>本次訓練已寫入 Supabase。</div> : null}
       {params.error ? <div className="notice errorNotice"><b>儲存失敗：</b>{params.error}</div> : null}
-      <DailyTrainingWorkspace students={students ?? []} />
+      <DailyTrainingWorkspace students={students ?? []} initialItemIds={suggestedSkillIds} />
     </main>
   );
 }
