@@ -42,6 +42,7 @@ export async function updateCompetition(formData: FormData) {
   if (error) goError(competitionId, error.message);
   revalidatePath('/competitions');
   revalidatePath(`/competitions/${competitionId}`);
+  redirect(`/competitions/${competitionId}?updated=1`);
 }
 
 export async function addCompetitionParticipants(formData: FormData) {
