@@ -15,6 +15,73 @@ function goError(competitionId: string, message: string): never {
   redirect(`/competitions/${competitionId}/rubbers?error=${encodeURIComponent(message)}`);
 }
 
+export async function saveQuickRubberAssignments(formData: FormData) {
+  const competitionId = String(formData.get('competition_id') ?? '');
+  if (!competitionId) return;
+  const { supabase, userId } = await getSupabase();
+  const { data: teamId } = await supabase.rpc('current_team_id');
+  if (!teamId) goError(competitionId, '目前沒有隊伍工作區');
+
+  const [{ data: participants, error: participantError }, { data: catalog, error: catalogError }, { data: existingOrders, error: orderError }] = await Promise.all([
+    supabase.from('competition_participants').select('student_id').eq('competition_id', competitionId),
+    supabase.from('rubber_catalog').select('*').eq('active', true),
+    supabase.from('competition_rubber_orders').select('*').eq('competition_id', competitionId),
+  ]);
+  if (participantError || catalogError || orderError) goError(competitionId, participantError?.message || catalogError?.message || orderError?.message || '讀取資料失敗');
+
+  const participantIds = [...new Set((participants ?? []).map((row:any)=>row.student_id))];
+  const catalogMap = new Map((catalog ?? []).map((item:any)=>[item.id, item]));
+  const existingMap = new Map((existingOrders ?? []).map((row:any)=>[`${row.student_id}:${row.side}`, row]));
+
+  for (const studentId of participantIds) {
+    for (const side of ['forehand','backhand'] as const) {
+      const field = `${side}_${studentId}`;
+      const catalogId = String(formData.get(field) ?? '');
+      const existing = existingMap.get(`${studentId}:${side}`);
+
+      if (!catalogId) {
+        if (existing && Number(existing.amount_paid ?? 0) === 0 && existing.workflow_status === 'requested') {
+          const { error } = await supabase.from('competition_rubber_orders').delete().eq('id', existing.id);
+          if (error) goError(competitionId, error.message);
+        }
+        continue;
+      }
+
+      const item:any = catalogMap.get(catalogId);
+      if (!item) continue;
+      const payload = {
+        catalog_id: item.id,
+        rubber_brand: item.brand,
+        rubber_model: item.model,
+        sponge_thickness: item.sponge_thickness,
+        color: item.color,
+        rubber_price: Number(item.sale_price ?? 0),
+        amount_due: Number(item.sale_price ?? 0) + Number(existing?.labor_fee ?? 0) + Number(existing?.edge_tape_fee ?? 0),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existing) {
+        if (existing.catalog_id === item.id) continue;
+        const { error } = await supabase.from('competition_rubber_orders').update(payload).eq('id', existing.id);
+        if (error) goError(competitionId, error.message);
+      } else {
+        const { error } = await supabase.from('competition_rubber_orders').insert({
+          team_id: teamId,
+          competition_id: competitionId,
+          student_id: studentId,
+          side,
+          ...payload,
+          created_by: userId,
+        });
+        if (error) goError(competitionId, error.message);
+      }
+    }
+  }
+
+  revalidatePath(`/competitions/${competitionId}/rubbers`);
+  redirect(`/competitions/${competitionId}/rubbers?saved=1`);
+}
+
 export async function createRubberOrder(formData: FormData) {
   const competitionId = String(formData.get('competition_id') ?? '');
   const studentId = String(formData.get('student_id') ?? '');
@@ -32,6 +99,7 @@ export async function createRubberOrder(formData: FormData) {
 
   const { supabase, userId } = await getSupabase();
   const { data: teamId } = await supabase.rpc('current_team_id');
+  const amountDue = Math.max(0, rubberPrice) + Math.max(0, laborFee) + Math.max(0, edgeTapeFee);
   const { error } = await supabase.from('competition_rubber_orders').insert({
     team_id: teamId,
     competition_id: competitionId,
@@ -44,6 +112,7 @@ export async function createRubberOrder(formData: FormData) {
     rubber_price: Number.isFinite(rubberPrice) && rubberPrice >= 0 ? rubberPrice : 0,
     labor_fee: Number.isFinite(laborFee) && laborFee >= 0 ? laborFee : 0,
     edge_tape_fee: Number.isFinite(edgeTapeFee) && edgeTapeFee >= 0 ? edgeTapeFee : 0,
+    amount_due: amountDue,
     payee: payee || null,
     notes: notes || null,
     created_by: userId,
@@ -71,6 +140,7 @@ export async function updateRubberOrder(formData: FormData) {
   if (!competitionId || !orderId || !rubberModel) goError(competitionId, '球皮資料不完整');
 
   const { supabase } = await getSupabase();
+  const amountDue = Math.max(0, rubberPrice) + Math.max(0, laborFee) + Math.max(0, edgeTapeFee);
   const { error } = await supabase.from('competition_rubber_orders').update({
     rubber_brand: rubberBrand || null,
     rubber_model: rubberModel,
@@ -79,11 +149,13 @@ export async function updateRubberOrder(formData: FormData) {
     rubber_price: Number.isFinite(rubberPrice) && rubberPrice >= 0 ? rubberPrice : 0,
     labor_fee: Number.isFinite(laborFee) && laborFee >= 0 ? laborFee : 0,
     edge_tape_fee: Number.isFinite(edgeTapeFee) && edgeTapeFee >= 0 ? edgeTapeFee : 0,
+    amount_due: amountDue,
     amount_paid: Number.isFinite(amountPaid) && amountPaid >= 0 ? amountPaid : 0,
     payee: payee || null,
     payment_status: paymentStatus,
     workflow_status: workflowStatus,
     notes: notes || null,
+    updated_at: new Date().toISOString(),
   }).eq('id', orderId).eq('competition_id', competitionId);
   if (error) goError(competitionId, error.message);
   revalidatePath(`/competitions/${competitionId}/rubbers`);
