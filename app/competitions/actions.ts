@@ -4,6 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
+async function getCoach() {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) redirect('/login');
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
+  if (!profile || !['admin', 'coach'].includes(profile.role)) redirect('/today');
+  return { supabase, userId };
+}
+
 export async function createCompetition(formData: FormData) {
   const name = String(formData.get('name') ?? '').trim();
   const startDate = String(formData.get('start_date') ?? '').trim();
@@ -11,17 +21,9 @@ export async function createCompetition(formData: FormData) {
   const location = String(formData.get('location') ?? '').trim();
   const registrationDeadline = String(formData.get('registration_deadline') ?? '').trim();
   const notes = String(formData.get('notes') ?? '').trim();
-
   if (!name || !startDate) redirect('/competitions?error=' + encodeURIComponent('請至少填寫比賽名稱與開始日期'));
 
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
-  if (!userId) redirect('/login');
-
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', userId).single();
-  if (!profile || !['admin', 'coach'].includes(profile.role)) redirect('/today');
-
+  const { supabase, userId } = await getCoach();
   const { error } = await supabase.from('competitions').insert({
     name,
     start_date: startDate,
@@ -31,8 +33,17 @@ export async function createCompetition(formData: FormData) {
     notes: notes || null,
     created_by: userId,
   });
-
   if (error) redirect('/competitions?error=' + encodeURIComponent(error.message));
   revalidatePath('/competitions');
   redirect('/competitions?created=1');
+}
+
+export async function deleteCompetition(formData: FormData) {
+  const competitionId = String(formData.get('competition_id') ?? '');
+  if (!competitionId) return;
+  const { supabase } = await getCoach();
+  const { error } = await supabase.from('competitions').delete().eq('id', competitionId);
+  if (error) redirect('/competitions?error=' + encodeURIComponent(error.message));
+  revalidatePath('/competitions');
+  redirect('/competitions?deleted=1');
 }
