@@ -2,6 +2,7 @@ import Link from 'next/link';
 import LogoutButton from '@/components/LogoutButton';
 
 const MODULES = [
+  { title: '帳號申請管理', desc: '查看待審核帳號，核准後加入目前球隊工作區。', status: '已可使用', href: '/more/accounts' },
   { title: '球皮介紹', desc: '整理球皮類型、特性、適合打法與選購建議。', status: '規劃中' },
   { title: '球板介紹', desc: '整理球板結構、速度控制、打法適配與選擇建議。', status: '規劃中' },
   { title: '球皮／球板代工規則', desc: '統一代購、黏貼、裁切、護邊與收費規則。', status: '規劃中' },
@@ -24,6 +25,7 @@ export default function MorePage() {
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>帳號</h2></div></div>
         <div className="notice"><b>工作區：</b>核准後加入同一球隊工作區的教練，會共同看到該球隊的學生、訓練、能力評量與比賽資料。</div>
+        <div className="topNav" style={{marginTop:12}}><Link href="/more/accounts">帳號申請管理</Link></div>
         <div style={{marginTop:12}}><LogoutButton /></div>
       </section>
 
@@ -39,7 +41,7 @@ export default function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>03</span><h2>開發順序</h2></div></div>
-        <div className="notice"><b>目前進度：</b>核心訓練閉環已可運作，比賽資訊與接送已進入日期／分車／學生車資階段。下一步會做帳號核准管理與比賽球皮管理。</div>
+        <div className="notice"><b>目前進度：</b>帳號核准與工作區隔離已完成，比賽資訊與接送已進入日期／分車／學生車資階段。下一步會進入比賽球皮管理。</div>
       </section>
     </main>
   );
