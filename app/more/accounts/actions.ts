@@ -11,6 +11,7 @@ function permissionsFromForm(formData: FormData) {
     assessment: formData.get('perm_assessment') === 'on',
     competitions: formData.get('perm_competitions') === 'on',
     transport: formData.get('perm_transport') === 'on',
+    equipment: formData.get('perm_equipment') === 'on',
   };
 }
 
