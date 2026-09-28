@@ -48,7 +48,7 @@ export default async function HistoryDetailPage({ params }: { params: Promise<{ 
         <div className="eyebrow">TRAINING RECORD</div>
         <h1>{session.session_date}</h1>
         <p>{session.focus_level} 級 · {session.participant_count} 人 · {session.table_count} 桌 · {session.duration_minutes} 分鐘</p>
-        <div className="topNav"><Link href="/history">返回歷史訓練</Link><Link href="/today">今日訓練</Link></div>
+        <div className="topNav"><Link href="/history">返回歷史訓練</Link><Link href={`/history/${id}/assess`}>課後快速評量</Link><Link href="/today">今日訓練</Link></div>
       </section>
 
       <section className="card">
