@@ -72,11 +72,28 @@ export async function assignTransportPassengers(formData: FormData) {
   const vehicleId = String(formData.get('vehicle_id') ?? '');
   const studentIds = formData.getAll('student_ids').map(String).filter(Boolean);
   if (!competitionId || !vehicleId || !studentIds.length) return;
+
   const { supabase } = await getCoach();
-  const { data: existing } = await supabase.from('competition_transport_assignments').select('student_id').eq('vehicle_id', vehicleId);
+  const [{ data: vehicle }, { data: existing }] = await Promise.all([
+    supabase.from('competition_transport_vehicles').select('capacity,competition_id').eq('id', vehicleId).single(),
+    supabase.from('competition_transport_assignments').select('student_id').eq('vehicle_id', vehicleId),
+  ]);
+
+  if (!vehicle || vehicle.competition_id !== competitionId) {
+    redirect(`/competitions/${competitionId}?error=${encodeURIComponent('找不到這台接送車輛')}`);
+  }
+
   const existingIds = new Set((existing ?? []).map((row) => row.student_id));
-  const rows = studentIds.filter((id) => !existingIds.has(id)).map((studentId) => ({ vehicle_id: vehicleId, student_id: studentId }));
-  if (rows.length) await supabase.from('competition_transport_assignments').insert(rows);
+  const newStudentIds = studentIds.filter((id) => !existingIds.has(id));
+  const remainingSeats = Math.max(0, vehicle.capacity - existingIds.size);
+  if (newStudentIds.length > remainingSeats) {
+    redirect(`/competitions/${competitionId}?error=${encodeURIComponent(`此車只剩 ${remainingSeats} 個座位，請減少勾選人數`)}`);
+  }
+
+  if (newStudentIds.length) {
+    const { error } = await supabase.from('competition_transport_assignments').insert(newStudentIds.map((studentId) => ({ vehicle_id: vehicleId, student_id: studentId })));
+    if (error) redirect(`/competitions/${competitionId}?error=${encodeURIComponent(error.message)}`);
+  }
   revalidatePath(`/competitions/${competitionId}`);
 }
 
