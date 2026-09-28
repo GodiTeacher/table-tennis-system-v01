@@ -101,6 +101,16 @@ export async function createTransportVehicle(formData: FormData) {
   revalidatePath(`/competitions/${competitionId}`);
 }
 
+export async function removeTransportVehicle(formData: FormData) {
+  const competitionId = String(formData.get('competition_id') ?? '');
+  const vehicleId = String(formData.get('vehicle_id') ?? '');
+  if (!competitionId || !vehicleId) return;
+  const { supabase } = await getCoach();
+  const { error } = await supabase.from('competition_transport_vehicles').delete().eq('id', vehicleId).eq('competition_id', competitionId);
+  if (error) goError(competitionId, error.message);
+  revalidatePath(`/competitions/${competitionId}`);
+}
+
 export async function assignTransportPassengers(formData: FormData) {
   const competitionId = String(formData.get('competition_id') ?? '');
   const vehicleId = String(formData.get('vehicle_id') ?? '');
@@ -109,20 +119,11 @@ export async function assignTransportPassengers(formData: FormData) {
   if (!competitionId || !vehicleId || !studentIds.length) return;
 
   const { supabase } = await getCoach();
-  const { data: vehicle } = await supabase
-    .from('competition_transport_vehicles')
-    .select('capacity,competition_id,transport_date,direction,fare_per_ride')
-    .eq('id', vehicleId)
-    .single();
+  const { data: vehicle } = await supabase.from('competition_transport_vehicles').select('capacity,competition_id,transport_date,direction,fare_per_ride').eq('id', vehicleId).single();
   if (!vehicle || vehicle.competition_id !== competitionId) goError(competitionId, '找不到這台接送車輛');
   if (vehicle.direction !== 'both' && vehicle.direction !== rideDirection) goError(competitionId, '這台車不提供此方向的接送');
 
-  const { data: assignedForVehicle } = await supabase
-    .from('competition_transport_assignments')
-    .select('student_id')
-    .eq('vehicle_id', vehicleId)
-    .eq('transport_date', vehicle.transport_date)
-    .eq('ride_direction', rideDirection);
+  const { data: assignedForVehicle } = await supabase.from('competition_transport_assignments').select('student_id').eq('vehicle_id', vehicleId).eq('transport_date', vehicle.transport_date).eq('ride_direction', rideDirection);
   const remainingSeats = Math.max(0, vehicle.capacity - (assignedForVehicle?.length ?? 0));
   if (studentIds.length > remainingSeats) goError(competitionId, `此車此方向只剩 ${remainingSeats} 個座位，請減少勾選人數`);
 
