@@ -24,12 +24,17 @@ export default async function CompetitionRubbersPage() {
       <section className="hero compactHero">
         <div className="eyebrow">EQUIPMENT MANAGEMENT</div>
         <h1>比賽球皮管理</h1>
-        <p>依比賽整理選手正反手球皮、費用、付款與訂貨／黏貼／交付進度。</p>
-        <div className="topNav"><Link href="/more">更多功能</Link><Link href="/competitions">比賽管理</Link><Link href="/students">學生管理</Link></div>
+        <p>先維護球皮資料庫與庫存，再依每場比賽的參賽名單快速安排正反手球皮與訂貨數量。</p>
+        <div className="topNav"><Link href="/rubber-catalog">球皮資料庫／庫存</Link><Link href="/competitions">比賽管理</Link><Link href="/more">更多功能</Link></div>
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>01</span><h2>選擇比賽</h2></div><strong>{competitions?.length ?? 0} 場</strong></div>
+        <div className="sectionTitle"><div><span>01</span><h2>使用流程</h2></div></div>
+        <div className="notice"><b>建議流程：</b>先在「球皮資料庫／庫存」建立品牌、型號、厚度、顏色、成本、售價與庫存 → 再選比賽快速配置參賽學生 → 系統自動彙整需求、庫存與需訂購數量。</div>
+      </section>
+
+      <section className="card">
+        <div className="sectionTitle"><div><span>02</span><h2>選擇比賽</h2></div><strong>{competitions?.length ?? 0} 場</strong></div>
         {!competitions?.length ? <p className="muted">目前沒有比賽，請先建立比賽。</p> : <div className="rubberCompetitionList">
           {competitions.map((competition) => {
             const rows = (orders ?? []).filter((row:any) => row.competition_id === competition.id);
@@ -37,7 +42,7 @@ export default async function CompetitionRubbersPage() {
             const unpaid = rows.filter((row:any) => !['paid','waived'].includes(row.payment_status)).length;
             return <Link className="rubberCompetitionCard" href={`/competitions/${competition.id}/rubbers`} key={competition.id}>
               <div><b>{competition.name}</b><small>{competition.start_date}{competition.end_date && competition.end_date !== competition.start_date ? ` ～ ${competition.end_date}` : ''}{competition.location ? ` · ${competition.location}` : ''}</small></div>
-              <div className="rubberCompetitionMeta"><span>{STATUS_TEXT[competition.status] ?? competition.status}</span><small>{rows.length} 筆需求 · {unfinished} 筆未完成 · {unpaid} 筆待付款</small><strong>管理球皮 ›</strong></div>
+              <div className="rubberCompetitionMeta"><span>{STATUS_TEXT[competition.status] ?? competition.status}</span><small>{rows.length} 片需求 · {unfinished} 筆未完成 · {unpaid} 筆待付款</small><strong>管理球皮 ›</strong></div>
             </Link>;
           })}
         </div>}
