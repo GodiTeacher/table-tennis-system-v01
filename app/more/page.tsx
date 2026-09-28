@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import LogoutButton from '@/components/LogoutButton';
+import { createClient } from '@/lib/supabase/server';
 
 const MODULES = [
   { title: '帳號申請管理', desc: '查看待審核帳號，核准後加入目前球隊工作區。', status: '已可使用', href: '/more/accounts' },
@@ -12,7 +13,27 @@ const MODULES = [
   { title: '比賽球皮管理', desc: '統計換皮需求、球皮型號、金額、付款對象與繳費狀態。', status: '下一階段' },
 ];
 
-export default function MorePage() {
+const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
+
+export default async function MorePage() {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+
+  let team: { id: string; school_name: string | null; sport_name: string | null; name: string } | null = null;
+  let memberRole = '';
+  if (userId) {
+    const { data: teamId } = await supabase.rpc('current_team_id');
+    if (teamId) {
+      const [{ data: teamData }, { data: membership }] = await Promise.all([
+        supabase.from('teams').select('id,school_name,sport_name,name').eq('id', teamId).single(),
+        supabase.from('team_members').select('member_role').eq('team_id', teamId).eq('user_id', userId).single(),
+      ]);
+      team = teamData ?? null;
+      memberRole = membership?.member_role ?? '';
+    }
+  }
+
   return (
     <main className="shell">
       <section className="hero compactHero">
@@ -23,8 +44,13 @@ export default function MorePage() {
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>01</span><h2>帳號</h2></div></div>
-        <div className="notice"><b>工作區：</b>核准後加入同一球隊工作區的教練，會共同看到該球隊的學生、訓練、能力評量與比賽資料。</div>
+        <div className="sectionTitle"><div><span>01</span><h2>目前學校與隊伍</h2></div>{memberRole ? <strong>{ROLE_TEXT[memberRole] ?? memberRole}</strong> : null}</div>
+        {team ? (
+          <div className="notice">
+            <b>{team.school_name || '未設定學校'}</b>｜{team.sport_name || '未設定運動'}｜{team.name}
+            <br/><span className="muted">你目前所有學生、訓練、評量、比賽與接送資料都屬於這個隊伍工作區。</span>
+          </div>
+        ) : <div className="notice">目前尚未加入任何學校／隊伍。</div>}
         <div className="topNav" style={{marginTop:12}}><Link href="/more/accounts">帳號申請管理</Link></div>
         <div style={{marginTop:12}}><LogoutButton /></div>
       </section>
