@@ -38,7 +38,7 @@ export default function DailyTrainingWorkspace({
     .slice(0, 8);
   const startingItems = validInitialItems.length ? validInitialItems : DEFAULT_ITEMS;
 
-  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(() => new Set(students.map((s) => s.id)));
+  const [selectedStudents, setSelectedStudents] = useState<Set<string>>(() => new Set());
   const [activeLevel, setActiveLevel] = useState<TrainingLevelId>('B');
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(startingItems));
   const [planOrder, setPlanOrder] = useState<string[]>(startingItems);
@@ -134,7 +134,7 @@ export default function DailyTrainingWorkspace({
   }
 
   function restoreDefaults() {
-    setSelectedStudents(new Set(students.map((student) => student.id)));
+    setSelectedStudents(new Set());
     setActiveLevel('B');
     setSelectedItemIds(new Set(DEFAULT_ITEMS));
     setPlanOrder(DEFAULT_ITEMS);
