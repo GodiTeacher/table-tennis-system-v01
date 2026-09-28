@@ -66,3 +66,25 @@ export async function createTransportVehicle(formData: FormData) {
   if (error) redirect(`/competitions/${competitionId}?error=${encodeURIComponent(error.message)}`);
   revalidatePath(`/competitions/${competitionId}`);
 }
+
+export async function assignTransportPassengers(formData: FormData) {
+  const competitionId = String(formData.get('competition_id') ?? '');
+  const vehicleId = String(formData.get('vehicle_id') ?? '');
+  const studentIds = formData.getAll('student_ids').map(String).filter(Boolean);
+  if (!competitionId || !vehicleId || !studentIds.length) return;
+  const { supabase } = await getCoach();
+  const { data: existing } = await supabase.from('competition_transport_assignments').select('student_id').eq('vehicle_id', vehicleId);
+  const existingIds = new Set((existing ?? []).map((row) => row.student_id));
+  const rows = studentIds.filter((id) => !existingIds.has(id)).map((studentId) => ({ vehicle_id: vehicleId, student_id: studentId }));
+  if (rows.length) await supabase.from('competition_transport_assignments').insert(rows);
+  revalidatePath(`/competitions/${competitionId}`);
+}
+
+export async function removeTransportPassenger(formData: FormData) {
+  const competitionId = String(formData.get('competition_id') ?? '');
+  const assignmentId = String(formData.get('assignment_id') ?? '');
+  if (!competitionId || !assignmentId) return;
+  const { supabase } = await getCoach();
+  await supabase.from('competition_transport_assignments').delete().eq('id', assignmentId);
+  revalidatePath(`/competitions/${competitionId}`);
+}
