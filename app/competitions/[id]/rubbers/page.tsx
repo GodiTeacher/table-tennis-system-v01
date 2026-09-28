@@ -95,7 +95,7 @@ export default async function CompetitionRubberDetailPage({ params, searchParams
               <label className="wideField">備註<input name="notes" defaultValue={order.notes ?? ''}/></label>
               <button className="primaryButton">儲存修改</button>
             </form>
-            <form action={deleteRubberOrder} className="rubberDeleteForm"><input type="hidden" name="competition_id" value={id}/><input type="hidden" name="order_id" value={order.id}/><ConfirmSubmitButton className="secondaryButton dangerText" confirmMessage="確定要刪除這筆球皮需求嗎？">刪除</ConfirmSubmitButton></form>
+            <form action={deleteRubberOrder} className="rubberDeleteForm"><input type="hidden" name="competition_id" value={id}/><input type="hidden" name="order_id" value={order.id}/><ConfirmSubmitButton className="secondaryButton dangerText" confirmText="確定要刪除這筆球皮需求嗎？">刪除</ConfirmSubmitButton></form>
           </article>;
         })}</div>}
       </section>
