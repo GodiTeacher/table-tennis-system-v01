@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { approveJoinRequest, approveNewTeamRequest, rejectAccessRequest } from './actions';
 
 const PERMS = [
-  ['students','學生管理'],['training','訓練規劃／紀錄'],['assessment','能力評量'],['competitions','比賽管理'],['transport','接送／車資'],
+  ['students','學生管理'],['training','訓練規劃／紀錄'],['assessment','能力評量'],['competitions','比賽管理'],['transport','接送／車資'],['equipment','器材／球皮管理'],
 ] as const;
 
 export default async function AccountsPage({ searchParams }: { searchParams: Promise<{ approved?: string; created?: string; rejected?: string; error?: string }> }) {
