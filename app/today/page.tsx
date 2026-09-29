@@ -8,7 +8,7 @@ import type { TrainingLevelId } from '@/lib/training-levels';
 export default async function TodayPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; saved?: string; student?: string; skills?: string; source?: string; group?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; student?: string; skills?: string; source?: string }>;
 }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -22,7 +22,7 @@ export default async function TodayPage({
   }
 
   const { data: teamId } = await supabase.rpc('current_team_id');
-  const [{ data: studentRows }, { data: customSkillRows }, { data: groups }, { data: presets }] = await Promise.all([
+  const [{ data: students }, { data: customSkillRows }, { data: groups }, { data: presets }] = await Promise.all([
     supabase
       .from('students')
       .select('id,display_name,grade,class_name,seat_number,gender,training_group_id')
@@ -51,9 +51,6 @@ export default async function TodayPage({
       .order('sort_order'),
   ]);
 
-  const activeGroup = params.group && (groups ?? []).some((group) => group.id === params.group) ? params.group : '';
-  const students = activeGroup ? (studentRows ?? []).filter((student) => student.training_group_id === activeGroup) : (studentRows ?? []);
-
   const customItems: TrainingItem[] = (customSkillRows ?? []).map((item) => ({
     id: item.id,
     name: item.name,
@@ -62,36 +59,28 @@ export default async function TodayPage({
     recommendedLevels: ((item.recommended_levels ?? []).filter((level: string) => ['A','B','C','D','E','F'].includes(level))) as TrainingLevelId[],
   }));
 
-  const abilitySkillIds = (params.skills ?? '').split(',').map((value) => value.trim()).filter(Boolean);
-  const groupPresetIds = activeGroup ? (presets ?? []).filter((row) => row.group_id === activeGroup).map((row) => row.skill_id) : [];
-  const suggestedSkillIds = abilitySkillIds.length ? abilitySkillIds : groupPresetIds;
-  const sourceStudent = params.student ? (studentRows ?? []).find((student) => student.id === params.student) : null;
-  const selectedGroup = (groups ?? []).find((group) => group.id === activeGroup) ?? null;
+  const suggestedSkillIds = (params.skills ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+  const sourceStudent = params.student ? (students ?? []).find((student) => student.id === params.student) : null;
 
   return (
     <main className="shell">
       <section className="hero compactHero">
         <div className="eyebrow">TABLE TENNIS SYSTEM V01</div>
         <h1>今日訓練</h1>
-        <p>從到課名單開始，直接完成今日訓練項目、時間、分桌與課表儲存。</p>
+        <p>先完成全隊點名，再選擇今天要規劃全隊或哪一組的訓練內容。</p>
         <div className="topNav"><Link href="/students">學生名單</Link><Link href="/history">歷史訓練</Link><Link href="/training-groups">隊內分組</Link><Link href="/training-items">自訂訓練項目</Link><Link href="/">原型規劃器</Link></div>
       </section>
 
-      {(groups ?? []).length ? <section className="card">
-        <div className="sectionTitle"><div><span>00</span><h2>今天訓練哪一組？</h2></div><strong>{selectedGroup?.name ?? '全隊'}</strong></div>
-        <div className="topNav" style={{gap:8,flexWrap:'wrap'}}>
-          <Link href="/today" className={!activeGroup ? 'primaryButton' : 'secondaryButton'}>全隊</Link>
-          {(groups ?? []).map((group) => <Link key={group.id} href={`/today?group=${group.id}`} className={activeGroup===group.id ? 'primaryButton' : 'secondaryButton'}>{group.name}</Link>)}
-          <Link href="/training-groups" className="secondaryButton">管理分組</Link>
-        </div>
-        {selectedGroup ? <p className="muted" style={{marginTop:10}}>目前只顯示 {selectedGroup.name} 的學生，並已帶入該組預設訓練項目；現場仍可自由增減。</p> : <p className="muted" style={{marginTop:10}}>目前顯示全隊學生；若各組訓練內容不同，建議先選擇組別。</p>}
-      </section> : null}
-
-      {params.source === 'ability' ? <div className="notice successNotice"><b>已帶入能力建議：</b>{sourceStudent ? `${sourceStudent.display_name} 的` : ''}低評量技能已預先加入今日訓練，可再自行增減項目與到課學生。</div> : null}
-      {selectedGroup && groupPresetIds.length ? <div className="notice successNotice"><b>{selectedGroup.name} 預設課表：</b>已帶入 {groupPresetIds.length} 個訓練項目，可再依今天狀況調整。</div> : null}
+      {params.source === 'ability' ? <div className="notice successNotice"><b>已帶入能力建議：</b>{sourceStudent ? `${sourceStudent.display_name} 的` : ''}低評量技能已預先加入今日訓練，可再自行增減。</div> : null}
       {params.saved ? <div className="notice successNotice"><b>已儲存：</b>本次訓練已寫入 Supabase。</div> : null}
       {params.error ? <div className="notice errorNotice"><b>儲存失敗：</b>{params.error}</div> : null}
-      <DailyTrainingWorkspace students={students} initialItemIds={suggestedSkillIds} customItems={customItems} />
+      <DailyTrainingWorkspace
+        students={students ?? []}
+        initialItemIds={suggestedSkillIds}
+        customItems={customItems}
+        trainingGroups={groups ?? []}
+        groupPresets={presets ?? []}
+      />
     </main>
   );
 }
