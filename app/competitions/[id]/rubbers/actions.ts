@@ -40,7 +40,7 @@ export async function saveQuickRubberAssignments(formData: FormData) {
       const existing = existingMap.get(`${studentId}:${side}`);
 
       if (!catalogId) {
-        if (existing && Number(existing.amount_paid ?? 0) === 0 && existing.workflow_status === 'requested') {
+        if (existing && Number(existing.amount_paid ?? 0) === 0 && existing.workflow_status === 'requested' && !existing.stock_deducted_at) {
           const { error } = await supabase.from('competition_rubber_orders').delete().eq('id', existing.id);
           if (error) goError(competitionId, error.message);
         }
@@ -62,6 +62,7 @@ export async function saveQuickRubberAssignments(formData: FormData) {
 
       if (existing) {
         if (existing.catalog_id === item.id) continue;
+        if (existing.stock_deducted_at) goError(competitionId, '已有實際領用庫存的球皮不能直接更換品項，請先確認庫存紀錄。');
         const { error } = await supabase.from('competition_rubber_orders').update(payload).eq('id', existing.id);
         if (error) goError(competitionId, error.message);
       } else {
@@ -140,6 +141,7 @@ export async function updateRubberOrder(formData: FormData) {
   if (!competitionId || !orderId || !rubberModel) goError(competitionId, '球皮資料不完整');
 
   const { supabase } = await getSupabase();
+  const { data: before } = await supabase.from('competition_rubber_orders').select('workflow_status,stock_deducted_at,catalog_id').eq('id', orderId).eq('competition_id', competitionId).single();
   const amountDue = Math.max(0, rubberPrice) + Math.max(0, laborFee) + Math.max(0, edgeTapeFee);
   const { error } = await supabase.from('competition_rubber_orders').update({
     rubber_brand: rubberBrand || null,
@@ -158,7 +160,18 @@ export async function updateRubberOrder(formData: FormData) {
     updated_at: new Date().toISOString(),
   }).eq('id', orderId).eq('competition_id', competitionId);
   if (error) goError(competitionId, error.message);
+
+  if (['installed','delivered'].includes(workflowStatus) && before?.catalog_id && !before?.stock_deducted_at) {
+    const { error: stockError } = await supabase.rpc('deduct_rubber_order_stock', { p_order_id: orderId });
+    if (stockError) {
+      await supabase.from('competition_rubber_orders').update({ workflow_status: before.workflow_status, updated_at: new Date().toISOString() }).eq('id', orderId);
+      goError(competitionId, `庫存未扣除：${stockError.message}`);
+    }
+  }
+
   revalidatePath(`/competitions/${competitionId}/rubbers`);
+  revalidatePath('/rubber-catalog');
+  revalidatePath('/rubber-inventory');
   redirect(`/competitions/${competitionId}/rubbers?updated=1`);
 }
 
@@ -167,6 +180,8 @@ export async function deleteRubberOrder(formData: FormData) {
   const orderId = String(formData.get('order_id') ?? '');
   if (!competitionId || !orderId) return;
   const { supabase } = await getSupabase();
+  const { data: existing } = await supabase.from('competition_rubber_orders').select('stock_deducted_at').eq('id', orderId).single();
+  if (existing?.stock_deducted_at) goError(competitionId, '這筆球皮已扣除實際庫存，為保留歷史紀錄不能直接刪除。');
   const { error } = await supabase.from('competition_rubber_orders').delete().eq('id', orderId).eq('competition_id', competitionId);
   if (error) goError(competitionId, error.message);
   revalidatePath(`/competitions/${competitionId}/rubbers`);
