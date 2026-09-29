@@ -29,6 +29,24 @@ const THEMES = [
     desc: '深藍綠＋亮橘，對比更明確，偏球隊與比賽風格。',
     swatches: ['#173f4a', '#e8f1f2', '#e97835'],
   },
+  {
+    id: 'sunset',
+    name: '晴空珊瑚',
+    desc: '亮藍＋珊瑚橘＋暖黃，比較繽紛，但維持乾淨底色。',
+    swatches: ['#2f80d0', '#ff7a6b', '#ffd66b'],
+  },
+  {
+    id: 'berry',
+    name: '莓果繽紛',
+    desc: '莓紫＋粉紅＋奶油黃，活潑柔和，適合想要更有個性的介面。',
+    swatches: ['#8358b3', '#ec6f91', '#ffd978'],
+  },
+  {
+    id: 'pingpong',
+    name: '桌球主題',
+    desc: '球桌綠＋球拍紅，背景加入低調桌球拍與球的圖案。',
+    swatches: ['#0f6b58', '#e23c3c', '#ffffff'],
+  },
 ] as const;
 
 const ROLE_TEXT: Record<string, string> = {
@@ -81,7 +99,7 @@ export default async function SettingsPage({
 
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>介面主題</h2></div><strong>目前：{THEMES.find((theme) => theme.id === currentTheme)?.name ?? '目前配色'}</strong></div>
-        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。</p>
+        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。現在共有 7 種風格可選。</p>
         <div className="themeChoiceGrid">
           {THEMES.map((theme) => (
             <form action={setTheme} key={theme.id} className={`themeChoiceCard ${currentTheme === theme.id ? 'selected' : ''}`}>
