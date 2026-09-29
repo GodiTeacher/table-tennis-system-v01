@@ -21,6 +21,13 @@ function parseGrade(value: FormDataEntryValue | null) {
   return Number.isInteger(grade) && grade >= 1 && grade <= 6 ? grade : null;
 }
 
+function parseSeatNumber(value: FormDataEntryValue | null) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  const seat = Number(text.replace(/號/g, ''));
+  return Number.isInteger(seat) && seat >= 1 && seat <= 99 ? seat : null;
+}
+
 function parseGender(value: FormDataEntryValue | null) {
   const gender = String(value ?? '').trim();
   return VALID_GENDERS.has(gender) ? gender : null;
@@ -30,11 +37,14 @@ function normalizeImportedStudent(raw:any) {
   const name = String(raw.display_name ?? raw['姓名'] ?? raw.name ?? '').trim();
   const gradeRaw = raw.grade ?? raw['年級'] ?? '';
   const gradeNumber = Number(String(gradeRaw).replace(/年級|年/g,''));
+  const seatRaw = raw.seat_number ?? raw['座號'] ?? raw.seatNumber ?? '';
+  const seatNumber = Number(String(seatRaw).replace(/號/g,''));
   const genderRaw = String(raw.gender ?? raw['性別'] ?? '').trim();
   return {
     display_name: name,
     grade: Number.isInteger(gradeNumber) && gradeNumber >= 1 && gradeNumber <= 6 ? gradeNumber : null,
     class_name: String(raw.class_name ?? raw['班級'] ?? raw.className ?? '').trim() || null,
+    seat_number: Number.isInteger(seatNumber) && seatNumber >= 1 && seatNumber <= 99 ? seatNumber : null,
     gender: VALID_GENDERS.has(genderRaw) ? genderRaw : null,
     active: raw.active === false || String(raw['狀態'] ?? '').includes('停用') ? false : true,
   };
@@ -48,10 +58,12 @@ export async function addStudent(formData: FormData) {
     display_name: displayName,
     grade: parseGrade(formData.get('grade')),
     class_name: String(formData.get('class_name') ?? '').trim() || null,
+    seat_number: parseSeatNumber(formData.get('seat_number')),
     gender: parseGender(formData.get('gender')),
   });
   if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/students');
+  revalidatePath('/today');
 }
 
 export async function batchAddStudents(formData: FormData) {
@@ -64,12 +76,23 @@ export async function batchAddStudents(formData: FormData) {
     .filter(Boolean)
     .map((line) => {
       const parts = line.includes('\t') ? line.split('\t') : line.split(/[,，]/);
-      const [nameRaw, gradeRaw = '', classRaw = '', genderRaw = ''] = parts.map((part) => part.trim());
+      const values = parts.map((part) => part.trim());
+      const nameRaw = values[0] ?? '';
+      const gradeRaw = values[1] ?? '';
+      const classRaw = values[2] ?? '';
+      // 新格式：姓名、年級、班級、座號、性別；舊四欄格式仍支援：姓名、年級、班級、性別。
+      const fourth = values[3] ?? '';
+      const fifth = values[4] ?? '';
+      const oldFourColumn = values.length === 4 && VALID_GENDERS.has(fourth);
+      const seatRaw = oldFourColumn ? '' : fourth;
+      const genderRaw = oldFourColumn ? fourth : fifth;
       const gradeNumber = Number(gradeRaw.replace(/年級|年/g, ''));
+      const seatNumber = Number(seatRaw.replace(/號/g, ''));
       return {
         display_name: nameRaw,
         grade: Number.isInteger(gradeNumber) && gradeNumber >= 1 && gradeNumber <= 6 ? gradeNumber : null,
         class_name: classRaw || null,
+        seat_number: Number.isInteger(seatNumber) && seatNumber >= 1 && seatNumber <= 99 ? seatNumber : null,
         gender: VALID_GENDERS.has(genderRaw) ? genderRaw : null,
       };
     })
@@ -81,6 +104,7 @@ export async function batchAddStudents(formData: FormData) {
   const { error } = await supabase.from('students').insert(rows);
   if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/students');
+  revalidatePath('/today');
 }
 
 export async function importStudentsData(formData: FormData) {
@@ -94,6 +118,7 @@ export async function importStudentsData(formData: FormData) {
   const { error } = await supabase.from('students').insert(rows);
   if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/students');
+  revalidatePath('/today');
 }
 
 export async function updateStudent(formData: FormData) {
@@ -106,11 +131,13 @@ export async function updateStudent(formData: FormData) {
     display_name: displayName,
     grade: parseGrade(formData.get('grade')),
     class_name: String(formData.get('class_name') ?? '').trim() || null,
+    seat_number: parseSeatNumber(formData.get('seat_number')),
     gender: parseGender(formData.get('gender')),
   }).eq('id', id);
 
   if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
   revalidatePath('/students');
+  revalidatePath('/today');
 }
 
 export async function setStudentActive(formData: FormData) {
