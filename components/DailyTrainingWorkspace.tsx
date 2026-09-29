@@ -13,7 +13,10 @@ type Student = {
   class_name: string | null;
   seat_number: number | null;
   gender: string | null;
+  training_group_id?: string | null;
 };
+type TrainingGroup = { id: string; name: string; sort_order?: number | null };
+type GroupPreset = { group_id: string; skill_id: string; sort_order?: number | null };
 type PlannedItem = { id: string; minutes: number };
 
 const DEFAULT_ITEMS = ['T03', 'T04', 'F02'];
@@ -31,10 +34,14 @@ export default function DailyTrainingWorkspace({
   students,
   initialItemIds = [],
   customItems = [],
+  trainingGroups = [],
+  groupPresets = [],
 }: {
   students: Student[];
   initialItemIds?: string[];
   customItems?: TrainingItem[];
+  trainingGroups?: TrainingGroup[];
+  groupPresets?: GroupPreset[];
 }) {
   const allItems = useMemo(() => [...TRAINING_ITEMS, ...customItems], [customItems]);
   const validInitialItems = initialItemIds
@@ -44,6 +51,7 @@ export default function DailyTrainingWorkspace({
   const startingItems = validInitialItems.length ? validInitialItems : DEFAULT_ITEMS;
 
   const [selectedStudents, setSelectedStudents] = useState<Set<string>>(() => new Set());
+  const [activeTrainingGroup, setActiveTrainingGroup] = useState('');
   const [activeLevel, setActiveLevel] = useState<TrainingLevelId>('B');
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(() => new Set(startingItems));
   const [planOrder, setPlanOrder] = useState<string[]>(startingItems);
@@ -54,8 +62,14 @@ export default function DailyTrainingWorkspace({
 
   const attendance = students.filter((student) => selectedStudents.has(student.id));
   const people = attendance.length;
+  const selectedGroup = trainingGroups.find((group) => group.id === activeTrainingGroup) ?? null;
+  const planningAttendance = activeTrainingGroup
+    ? attendance.filter((student) => student.training_group_id === activeTrainingGroup)
+    : attendance;
+  const planningPeople = planningAttendance.length;
   const minutes = clampNumber(minutesInput, 15, 90);
   const tables = clampNumber(tablesInput, 1, 3);
+
   const visibleItems = useMemo(
     () => showAll ? allItems : allItems.filter((item) => item.recommendedLevels.includes(activeLevel)),
     [activeLevel, showAll, allItems]
@@ -92,12 +106,12 @@ export default function DailyTrainingWorkspace({
     .filter(Boolean) as TrainingItem[];
 
   const tablePlan = useMemo(() => {
-    if (!people || tables <= 0) return [];
-    const usedTables = Math.min(tables, people);
-    const base = Math.floor(people / usedTables);
-    const extra = people % usedTables;
+    if (!planningPeople || tables <= 0) return [];
+    const usedTables = Math.min(tables, planningPeople);
+    const base = Math.floor(planningPeople / usedTables);
+    const extra = planningPeople % usedTables;
     return Array.from({ length: usedTables }, (_, index) => base + (index < extra ? 1 : 0));
-  }, [people, tables]);
+  }, [planningPeople, tables]);
 
   const warmupMinutes = minutes >= 60 ? 10 : 5;
   const cooldownMinutes = minutes >= 60 ? 5 : 0;
@@ -115,6 +129,17 @@ export default function DailyTrainingWorkspace({
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  }
+
+  function selectTrainingGroup(groupId: string) {
+    setActiveTrainingGroup(groupId);
+    setActiveLevel('B');
+    setShowAll(false);
+    const ids = groupId
+      ? groupPresets.filter((preset) => preset.group_id === groupId).map((preset) => preset.skill_id).filter((id) => allItems.some((item) => item.id === id))
+      : DEFAULT_ITEMS.filter((id) => allItems.some((item) => item.id === id));
+    setSelectedItemIds(new Set(ids));
+    setPlanOrder(ids);
   }
 
   function toggleItem(id: string) {
@@ -144,6 +169,7 @@ export default function DailyTrainingWorkspace({
 
   function restoreDefaults() {
     setSelectedStudents(new Set());
+    setActiveTrainingGroup('');
     setActiveLevel('B');
     setSelectedItemIds(new Set(DEFAULT_ITEMS));
     setPlanOrder(DEFAULT_ITEMS);
@@ -163,7 +189,7 @@ export default function DailyTrainingWorkspace({
       <input type="hidden" name="focus_level" value={activeLevel} />
       <input type="hidden" name="duration_minutes" value={minutes} />
       <input type="hidden" name="table_count" value={tables} />
-      <input type="hidden" name="student_ids" value={JSON.stringify(attendance.map((s) => s.id))} />
+      <input type="hidden" name="student_ids" value={JSON.stringify(planningAttendance.map((s) => s.id))} />
       <input type="hidden" name="plan_items" value={JSON.stringify(plannedItems)} />
 
       {saveState.status !== 'idle' ? (
@@ -174,6 +200,7 @@ export default function DailyTrainingWorkspace({
 
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>今日到課</h2></div><strong>{people} 人</strong></div>
+        <p className="muted">先完成全隊點名。下面再選今天要規劃全隊或哪一組的課表；切換組別不會清掉這裡的到課名單。</p>
         {!students.length ? <p className="muted">學生名單目前是空的，請先到學生名單新增學生。</p> : (
           <div className="attendanceSections">
             {attendanceGroups.map(([label, groupStudents]) => (
@@ -196,9 +223,23 @@ export default function DailyTrainingWorkspace({
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>02</span><h2>程度與訓練項目</h2></div><div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}><strong>{selectedItems.length} 項已選</strong><Link href="/training-items" className="secondaryButton">＋ 自訂訓練項目</Link></div></div>
-        {customItems.length ? <div className="notice"><b>隊伍自訂：</b>目前有 {customItems.length} 個啟用中的自訂訓練項目，會依你設定的 A～F 程度一起出現在推薦清單。</div> : null}
-        {validInitialItems.length ? <div className="notice successNotice"><b>能力建議已帶入：</b>目前預先選了 {validInitialItems.length} 個較需要加強的技能；教練仍可自由增減。</div> : null}
+        <div className="sectionTitle"><div><span>02</span><h2>選擇課表對象</h2></div><strong>{selectedGroup?.name ?? '全隊'}</strong></div>
+        <div className="groupPicker">
+          <button type="button" className={!activeTrainingGroup ? 'primaryButton' : 'secondaryButton'} onClick={() => selectTrainingGroup('')}>全隊</button>
+          {trainingGroups.map((group) => <button type="button" key={group.id} className={activeTrainingGroup === group.id ? 'primaryButton' : 'secondaryButton'} onClick={() => selectTrainingGroup(group.id)}>{group.name}</button>)}
+          <Link href="/training-groups" className="secondaryButton">管理分組</Link>
+        </div>
+        <div className="notice" style={{marginTop:12}}>
+          <b>{selectedGroup ? `${selectedGroup.name} 今日到課 ${planningPeople} 人` : `全隊今日到課 ${planningPeople} 人`}：</b>
+          {selectedGroup ? '下方分桌、程度與課表會依這一組規劃；上面的全隊點名不會改變。' : '下方使用全部到課學生規劃。'}
+        </div>
+      </section>
+
+      <section className="card">
+        <div className="sectionTitle"><div><span>03</span><h2>程度與訓練項目</h2></div><div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}><strong>{selectedItems.length} 項已選</strong><Link href="/training-items" className="secondaryButton">＋ 自訂訓練項目</Link></div></div>
+        {selectedGroup ? <div className="notice successNotice"><b>{selectedGroup.name}：</b>{selectedItems.length ? `已帶入 ${selectedItems.length} 個該組預設項目，可再自行增減。` : '目前尚未設定預設項目，請直接選擇今天要練的內容，或到「管理分組」設定。'}</div> : null}
+        {customItems.length ? <div className="notice"><b>隊伍自訂：</b>目前有 {customItems.length} 個啟用中的自訂訓練項目，會依 A～F 程度一起出現在推薦清單。</div> : null}
+        {validInitialItems.length && !activeTrainingGroup ? <div className="notice successNotice"><b>能力建議已帶入：</b>目前預先選了 {validInitialItems.length} 個較需要加強的技能；教練仍可自由增減。</div> : null}
         <div className="levelGrid">
           {TRAINING_LEVELS.map((level) => <button type="button" key={level.id} className={activeLevel === level.id ? 'level active' : 'level'} onClick={() => setActiveLevel(level.id)}>
             <b>{level.id}</b><span>{level.name}</span><small>{level.description}</small>
@@ -223,21 +264,22 @@ export default function DailyTrainingWorkspace({
 
       <section className="twoCol">
         <section className="card">
-          <div className="sectionTitle"><div><span>03</span><h2>課程條件</h2></div></div>
+          <div className="sectionTitle"><div><span>04</span><h2>課程條件</h2></div></div>
           <div className="inputs twoInputs">
             <label>訓練時間<input inputMode="numeric" type="number" min="15" value={minutesInput} onChange={(e) => setMinutesInput(e.target.value)} onBlur={() => setMinutesInput(String(clampNumber(minutesInput, 15, 90)))}/><em>分鐘</em></label>
             <label>可用球桌<input inputMode="numeric" type="number" min="1" value={tablesInput} onChange={(e) => setTablesInput(e.target.value)} onBlur={() => setTablesInput(String(clampNumber(tablesInput, 1, 3)))}/><em>桌</em></label>
           </div>
-          <p className="muted">數字可以整個刪除後重新輸入；離開欄位時才會檢查最小值。參與人數目前 {people} 人。</p>
+          <p className="muted">目前課表對象 {planningPeople} 人；數字可以整個刪除後重新輸入，離開欄位時才檢查最小值。</p>
         </section>
         <section className="card">
-          <div className="sectionTitle"><div><span>04</span><h2>分桌建議</h2></div></div>
+          <div className="sectionTitle"><div><span>05</span><h2>分桌建議</h2></div></div>
           <div className="tables">{tablePlan.map((count, index) => <div key={index}><b>{index + 1} 號桌</b><span>{count} 人</span></div>)}</div>
+          {!planningPeople ? <p className="muted">目前選擇的課表對象沒有到課學生。</p> : null}
         </section>
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>05</span><h2>今日課表</h2></div><strong>{minutes} 分鐘</strong></div>
+        <div className="sectionTitle"><div><span>06</span><h2>今日課表</h2></div><strong>{minutes} 分鐘</strong></div>
         {!selectedItems.length ? <p className="muted">先選擇至少一個訓練項目。</p> : <div className="scheduleList">
           <div className="scheduleRow fixed"><span className="orderBadge">暖身</span><div><b>動態暖身＋球感啟動</b><small>固定流程</small></div><strong>{warmupMinutes} 分</strong></div>
           {selectedItems.map((item, index) => {
@@ -254,12 +296,14 @@ export default function DailyTrainingWorkspace({
       </section>
 
       <section className="card saveCard">
-        <div><b>今日訓練摘要</b><p className="muted">{people} 人 · {tables} 桌 · {minutes} 分鐘 · {selectedItems.length} 個訓練項目</p><p className="muted smallText">儲存成功後保留目前畫面，不會把剛才的選擇清掉。</p></div>
+        <div><b>今日訓練摘要</b><p className="muted">全隊到課 {people} 人 · 本課表 {planningPeople} 人 · {tables} 桌 · {minutes} 分鐘 · {selectedItems.length} 個訓練項目</p><p className="muted smallText">可先點名一次，再切換不同組別依序規劃與儲存各組課表。</p></div>
         <div className="saveActions">
           <button type="button" className="secondaryButton" onClick={restoreDefaults}>恢復預設</button>
-          <button className="primaryButton saveButton" disabled={isSaving || !people || !selectedItems.length}>{isSaving ? '儲存中…' : '儲存本次訓練'}</button>
+          <button className="primaryButton saveButton" disabled={isSaving || !planningPeople || !selectedItems.length}>{isSaving ? '儲存中…' : `儲存${selectedGroup ? ` ${selectedGroup.name}` : ''}本次訓練`}</button>
         </div>
       </section>
+
+      <style>{`.groupPicker{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.groupPicker a{text-decoration:none;display:inline-flex;align-items:center}.groupPicker button{min-width:76px}@media(max-width:620px){.groupPicker button,.groupPicker a{flex:1 1 28%;justify-content:center}}`}</style>
     </form>
   );
 }
