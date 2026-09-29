@@ -8,7 +8,7 @@ const MODULES = [
   { title: '球皮庫存異動', desc: '記錄入庫、出庫、盤點與比賽領用；比賽已黏貼後自動扣庫存並保留學生歷史用皮。', status: 'V2 已可使用', href: '/rubber-inventory' },
   { title: '球皮介紹', desc: '整理球皮類型、特性、適合打法與選購建議。', status: '規劃中' },
   { title: '球板介紹', desc: '整理球板結構、速度控制、打法適配與選擇建議。', status: '規劃中' },
-  { title: '球皮／球板代工規則', desc: '統一代購、黏貼、裁切、護邊與收費規則。', status: '規劃中' },
+  { title: '球皮／球板代工規則', desc: '代訂免費黏貼／裁切、自購代工費用、護邊與注意事項，並可複製家長公告。', status: '已可使用', href: '/service-rules' },
   { title: '桌球職涯介紹', desc: '從校隊、競賽、升學到未來發展的桌球學習路徑。', status: '規劃中' },
   { title: '隊規', desc: '集中管理球隊規範、訓練要求與家長須知。', status: '規劃中' },
   { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、家長／教練接送、座位與每位學生車資。', status: 'V2 已可使用', href: '/competitions' },
@@ -68,7 +68,7 @@ export default async function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>03</span><h2>開發順序</h2></div></div>
-        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫與庫存異動都有可用版本；接下來會持續完善器材與隊務內容。</div>
+        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫、庫存異動與球皮／球板代工規則都有可用版本；接下來會持續完善器材與隊務內容。</div>
       </section>
     </main>
   );
