@@ -27,7 +27,7 @@ export default async function AccountPage({
         <div className="eyebrow">ACCOUNT SETTINGS</div>
         <h1>帳號設定</h1>
         <p>管理登入密碼與自己的帳號。</p>
-        <div className="topNav"><Link href="/more">← 返回更多</Link></div>
+        <div className="topNav"><Link href="/settings">← 返回設定</Link></div>
       </section>
 
       {params.error ? <div className="notice errorNotice">{params.error}</div> : null}
