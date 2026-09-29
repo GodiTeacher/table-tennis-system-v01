@@ -25,10 +25,11 @@ export default async function TodayPage({
   const [{ data: studentRows }, { data: customSkillRows }, { data: groups }, { data: presets }] = await Promise.all([
     supabase
       .from('students')
-      .select('id,display_name,grade,class_name,gender,training_group_id')
+      .select('id,display_name,grade,class_name,seat_number,gender,training_group_id')
       .eq('active', true)
       .order('grade', { ascending: true, nullsFirst: false })
-      .order('gender', { ascending: true, nullsFirst: false })
+      .order('class_name', { ascending: true, nullsFirst: false })
+      .order('seat_number', { ascending: true, nullsFirst: false })
       .order('display_name'),
     supabase
       .from('skills')
