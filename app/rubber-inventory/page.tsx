@@ -5,6 +5,17 @@ import DataPortTools from '@/components/DataPortTools';
 import { adjustRubberInventory } from './actions';
 
 const MOVE_TEXT: Record<string,string> = { in:'入庫', out:'出庫', adjustment:'盤點調整', competition_use:'比賽領用' };
+const EXPORT_COLUMNS = [
+  { key:'時間', label:'時間' },
+  { key:'球皮', label:'球皮' },
+  { key:'類型', label:'類型' },
+  { key:'異動', label:'異動' },
+  { key:'異動前', label:'異動前' },
+  { key:'異動後', label:'異動後' },
+  { key:'學生', label:'學生' },
+  { key:'比賽', label:'比賽' },
+  { key:'備註', label:'備註' },
+];
 
 export default async function RubberInventoryPage({ searchParams }: { searchParams: Promise<{ updated?: string; error?: string }> }) {
   const query = await searchParams;
@@ -72,7 +83,7 @@ export default async function RubberInventoryPage({ searchParams }: { searchPara
 
     <section className="card">
       <div className="sectionTitle"><div><span>03</span><h2>異動紀錄</h2></div><strong>{movements?.length ?? 0} 筆</strong></div>
-      <DataPortTools title="球皮庫存異動" rows={movementRows} filename="球皮庫存異動" />
+      <DataPortTools title="球皮庫存異動" rows={movementRows} columns={EXPORT_COLUMNS} filename="球皮庫存異動" />
       {!movements?.length ? <p className="muted">尚無庫存異動紀錄。</p> : <div className="movementList">{(movements ?? []).map((row:any)=><article key={row.id}>
         <div><b>{row.rubber_catalog?.brand} {row.rubber_catalog?.model}</b><small>{new Date(row.created_at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei'})}{row.students?.display_name?` · ${row.students.display_name}`:''}{row.competitions?.name?` · ${row.competitions.name}`:''}</small></div>
         <div className={Number(row.quantity_change)>0?'stockPlus':'stockMinus'}><strong>{Number(row.quantity_change)>0?'+':''}{row.quantity_change}</strong><small>{MOVE_TEXT[row.movement_type] ?? row.movement_type}</small></div>
