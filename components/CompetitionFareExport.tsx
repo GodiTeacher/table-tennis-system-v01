@@ -2,121 +2,20 @@
 
 import { useState } from 'react';
 
-type Trip = {
-  date: string;
-  direction: 'outbound' | 'return';
-  driver: string;
-  amount: number;
-};
+type Trip={date:string;direction:'outbound'|'return';driver:string;amount:number};
+type FareRow={studentName:string;due:number;paid:number;trips:Trip[]};
+const directionText=(v:Trip['direction'])=>v==='outbound'?'去程':'回程';
+const csvEscape=(v:unknown)=>`"${String(v??'').replaceAll('"','""')}"`;
+function download(content:string,type:string,filename:string){const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=filename;a.click();URL.revokeObjectURL(u);}
+function buildText(competitionName:string,rows:FareRow[]){const lines=[`📣 ${competitionName} 接送與車資整理`,''];rows.forEach(row=>{lines.push(`👤 ${row.studentName}`);row.trips.forEach(trip=>lines.push(`・${trip.date} ${directionText(trip.direction)}｜${trip.driver}｜$${trip.amount}`));lines.push(`應付 $${row.due}｜已付 $${row.paid}｜未付 $${Math.max(0,row.due-row.paid)}`,'');});lines.push('如接送或金額有誤，再請告知教練，謝謝！');return lines.join('\n');}
+function wrapText(ctx:CanvasRenderingContext2D,text:string,maxWidth:number){const result:string[]=[];let current='';for(const char of text){const next=current+char;if(ctx.measureText(next).width>maxWidth&&current){result.push(current);current=char;}else current=next;}if(current)result.push(current);return result;}
 
-type FareRow = {
-  studentName: string;
-  due: number;
-  paid: number;
-  trips: Trip[];
-};
-
-function directionText(value: Trip['direction']) {
-  return value === 'outbound' ? '去程' : '回程';
-}
-
-function buildText(competitionName: string, rows: FareRow[]) {
-  const lines = [`📣 ${competitionName} 接送與車資整理`, ''];
-  rows.forEach((row) => {
-    lines.push(`👤 ${row.studentName}`);
-    row.trips.forEach((trip) => {
-      lines.push(`・${trip.date} ${directionText(trip.direction)}｜${trip.driver}｜$${trip.amount}`);
-    });
-    const remain = Math.max(0, row.due - row.paid);
-    lines.push(`應付 $${row.due}｜已付 $${row.paid}｜未付 $${remain}`);
-    lines.push('');
-  });
-  lines.push('如接送或金額有誤，再請告知教練，謝謝！');
-  return lines.join('\n');
-}
-
-function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
-  const result: string[] = [];
-  let current = '';
-  for (const char of text) {
-    const next = current + char;
-    if (ctx.measureText(next).width > maxWidth && current) {
-      result.push(current);
-      current = char;
-    } else {
-      current = next;
-    }
-  }
-  if (current) result.push(current);
-  return result;
-}
-
-export default function CompetitionFareExport({ competitionName, rows }: { competitionName: string; rows: FareRow[] }) {
-  const [copied, setCopied] = useState(false);
-  const text = buildText(competitionName, rows);
-
-  async function copyLineText() {
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  }
-
-  function downloadImage() {
-    const canvas = document.createElement('canvas');
-    const width = 1080;
-    const padding = 72;
-    const contentWidth = width - padding * 2;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.font = '42px system-ui, sans-serif';
-    const textLines: Array<{ text: string; size: number; weight: number; gap: number }> = [];
-    textLines.push({ text: `${competitionName} 接送與車資`, size: 50, weight: 800, gap: 28 });
-    rows.forEach((row) => {
-      textLines.push({ text: row.studentName, size: 40, weight: 800, gap: 10 });
-      row.trips.forEach((trip) => {
-        textLines.push({ text: `${trip.date} ${directionText(trip.direction)}｜${trip.driver}｜$${trip.amount}`, size: 31, weight: 500, gap: 4 });
-      });
-      textLines.push({ text: `應付 $${row.due}｜已付 $${row.paid}｜未付 $${Math.max(0, row.due - row.paid)}`, size: 32, weight: 700, gap: 28 });
-    });
-    textLines.push({ text: '如接送或金額有誤，再請告知教練，謝謝！', size: 28, weight: 500, gap: 0 });
-
-    let height = padding * 2;
-    for (const item of textLines) {
-      ctx.font = `${item.weight} ${item.size}px system-ui, sans-serif`;
-      const wrapped = wrapText(ctx, item.text, contentWidth);
-      height += wrapped.length * (item.size * 1.45) + item.gap;
-    }
-    canvas.width = width;
-    canvas.height = Math.ceil(height);
-    ctx.fillStyle = '#f4f7fb';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.fillStyle = '#202a39';
-    let y = padding;
-    for (const item of textLines) {
-      ctx.font = `${item.weight} ${item.size}px system-ui, sans-serif`;
-      ctx.fillStyle = item.weight >= 700 ? '#202a39' : '#586577';
-      const wrapped = wrapText(ctx, item.text, contentWidth);
-      for (const line of wrapped) {
-        ctx.fillText(line, padding, y);
-        y += item.size * 1.45;
-      }
-      y += item.gap;
-    }
-
-    const link = document.createElement('a');
-    link.download = `${competitionName}-接送車資.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  }
-
-  if (!rows.length) return <p className="muted">目前沒有可匯出的車資資料。</p>;
-
-  return (
-    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-      <button type="button" className="primaryButton" onClick={copyLineText}>{copied ? '✓ 已複製' : '複製 LINE 訊息'}</button>
-      <button type="button" className="secondaryButton" onClick={downloadImage}>下載車資圖片</button>
-    </div>
-  );
+export default function CompetitionFareExport({competitionName,rows}:{competitionName:string;rows:FareRow[]}){
+  const [copied,setCopied]=useState(false); const text=buildText(competitionName,rows);
+  async function copyLineText(){await navigator.clipboard.writeText(text);setCopied(true);window.setTimeout(()=>setCopied(false),1800);}
+  function downloadCsv(){const data:unknown[][]=[['學生','日期','方向','駕駛','該段車資','總應付','已付','未付']];rows.forEach(row=>{if(!row.trips.length)data.push([row.studentName,'','','','',row.due,row.paid,Math.max(0,row.due-row.paid)]);row.trips.forEach(t=>data.push([row.studentName,t.date,directionText(t.direction),t.driver,t.amount,row.due,row.paid,Math.max(0,row.due-row.paid)]));});download('\ufeff'+data.map(r=>r.map(csvEscape).join(',')).join('\r\n'),'text/csv;charset=utf-8',`${competitionName}-接送車資.csv`);}
+  function downloadJson(){download(JSON.stringify({competitionName,rows},null,2),'application/json;charset=utf-8',`${competitionName}-接送車資.json`);}
+  function downloadImage(){const canvas=document.createElement('canvas');const width=1080,padding=72,contentWidth=width-padding*2;const ctx=canvas.getContext('2d');if(!ctx)return;ctx.font='42px system-ui, sans-serif';const textLines:Array<{text:string;size:number;weight:number;gap:number}>=[];textLines.push({text:`${competitionName} 接送與車資`,size:50,weight:800,gap:28});rows.forEach(row=>{textLines.push({text:row.studentName,size:40,weight:800,gap:10});row.trips.forEach(trip=>textLines.push({text:`${trip.date} ${directionText(trip.direction)}｜${trip.driver}｜$${trip.amount}`,size:31,weight:500,gap:4}));textLines.push({text:`應付 $${row.due}｜已付 $${row.paid}｜未付 $${Math.max(0,row.due-row.paid)}`,size:32,weight:700,gap:28});});textLines.push({text:'如接送或金額有誤，再請告知教練，謝謝！',size:28,weight:500,gap:0});let height=padding*2;for(const item of textLines){ctx.font=`${item.weight} ${item.size}px system-ui, sans-serif`;height+=wrapText(ctx,item.text,contentWidth).length*(item.size*1.45)+item.gap;}canvas.width=width;canvas.height=Math.ceil(height);ctx.fillStyle='#f4f7fb';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.fillStyle='#202a39';let y=padding;for(const item of textLines){ctx.font=`${item.weight} ${item.size}px system-ui, sans-serif`;ctx.fillStyle=item.weight>=700?'#202a39':'#586577';for(const line of wrapText(ctx,item.text,contentWidth)){ctx.fillText(line,padding,y);y+=item.size*1.45;}y+=item.gap;}const link=document.createElement('a');link.download=`${competitionName}-接送車資.png`;link.href=canvas.toDataURL('image/png');link.click();}
+  if(!rows.length)return <p className="muted">目前沒有可匯出的車資資料。</p>;
+  return <div style={{display:'flex',gap:8,flexWrap:'wrap'}}><button type="button" className="primaryButton" onClick={copyLineText}>{copied?'✓ 已複製':'複製 LINE 訊息'}</button><button type="button" className="secondaryButton" onClick={downloadImage}>下載車資圖片</button><button type="button" className="secondaryButton" onClick={downloadCsv}>Excel / CSV</button><button type="button" className="secondaryButton" onClick={downloadJson}>JSON</button></div>;
 }
