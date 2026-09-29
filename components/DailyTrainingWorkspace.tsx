@@ -11,6 +11,7 @@ type Student = {
   display_name: string;
   grade: number | null;
   class_name: string | null;
+  seat_number: number | null;
   gender: string | null;
 };
 type PlannedItem = { id: string; minutes: number };
@@ -65,6 +66,11 @@ export default function DailyTrainingWorkspace({
       const gradeA = a.grade ?? 99;
       const gradeB = b.grade ?? 99;
       if (gradeA !== gradeB) return gradeA - gradeB;
+      const classCompare = (a.class_name ?? '\uffff').localeCompare(b.class_name ?? '\uffff', 'zh-Hant');
+      if (classCompare !== 0) return classCompare;
+      const seatA = a.seat_number ?? 999;
+      const seatB = b.seat_number ?? 999;
+      if (seatA !== seatB) return seatA - seatB;
       const genderA = a.gender ? (GENDER_ORDER[a.gender] ?? 9) : 9;
       const genderB = b.gender ? (GENDER_ORDER[b.gender] ?? 9) : 9;
       if (genderA !== genderB) return genderA - genderB;
@@ -176,7 +182,7 @@ export default function DailyTrainingWorkspace({
                 <div className="attendanceGrid">
                   {groupStudents.map((student) => {
                     const checked = selectedStudents.has(student.id);
-                    const meta = [student.gender, student.class_name].filter(Boolean).join(' · ');
+                    const meta = [student.class_name, student.seat_number ? `${student.seat_number}號` : null, student.gender].filter(Boolean).join(' · ');
                     return <button type="button" key={student.id} className={checked ? 'attendance checked' : 'attendance'} onClick={() => toggleStudent(student.id)}>
                       <span>{checked ? '✓' : '+'}</span>
                       <div><b>{student.display_name}</b>{meta ? <small>{meta}</small> : null}</div>
