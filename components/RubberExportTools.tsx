@@ -81,7 +81,7 @@ function csvEscape(value: unknown) {
 }
 
 function exportCsv(props:Props) {
-  const rows = [['比賽','學生','年級','班級','面別','品牌','型號','厚度','顏色','應付','已付','未付','付款狀態','處理進度','付款對象','成本']];
+  const rows: unknown[][] = [['比賽','學生','年級','班級','面別','品牌','型號','厚度','顏色','應付','已付','未付','付款狀態','處理進度','付款對象','成本']];
   for (const student of props.students) {
     for (const side of student.sides) {
       rows.push([props.competitionName,student.name,student.grade ?? '',student.className ?? '',side.label,side.brand ?? '',side.model,side.thickness ?? '',side.color ?? '',side.amountDue,side.amountPaid,Math.max(0,side.amountDue-side.amountPaid),side.paymentStatus,side.workflowStatus,side.payee ?? '',side.cost]);
