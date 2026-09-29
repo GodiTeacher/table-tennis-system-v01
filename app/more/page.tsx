@@ -6,8 +6,8 @@ const MODULES = [
   { title: '自訂訓練項目', desc: '在系統預設技能之外，建立隊伍自己的訓練項目並設定適用 A～F 程度。', status: '已可使用', href: '/training-items' },
   { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V2 已可使用', href: '/rubber-catalog' },
   { title: '球皮庫存異動', desc: '記錄入庫、出庫、盤點與比賽領用；比賽已黏貼後自動扣庫存並保留學生歷史用皮。', status: 'V2 已可使用', href: '/rubber-inventory' },
-  { title: '球皮介紹', desc: '整理球皮類型、特性、適合打法與選購建議。', status: '規劃中' },
-  { title: '球板介紹', desc: '整理球板結構、速度控制、打法適配與選擇建議。', status: '規劃中' },
+  { title: '球皮介紹', desc: '球皮類型、剖面、速度／旋轉／控制／硬度與不同程度選擇方向。', status: '已可使用', href: '/rubber-guide' },
+  { title: '球板介紹', desc: '五夾、七夾、內置／外置纖維、握柄、整拍重量與選擇方向。', status: '已可使用', href: '/blade-guide' },
   { title: '球皮／球板代工規則', desc: '代訂免費黏貼／裁切、自購代工費用、護邊與注意事項，並可複製家長公告。', status: '已可使用', href: '/service-rules' },
   { title: '桌球職涯介紹', desc: '從校隊、競賽、升學到未來發展的桌球學習路徑。', status: '規劃中' },
   { title: '隊規', desc: '集中管理球隊規範、訓練要求與家長須知。', status: '規劃中' },
@@ -47,12 +47,7 @@ export default async function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>目前學校與隊伍</h2></div>{memberRole ? <strong>{ROLE_TEXT[memberRole] ?? memberRole}</strong> : null}</div>
-        {team ? (
-          <div className="notice">
-            <b>{team.school_name || '未設定學校'}</b>｜{team.sport_name || '未設定運動'}｜{team.name}
-            <br/><span className="muted">你目前所有學生、訓練、評量、比賽與接送資料都屬於這個隊伍工作區。</span>
-          </div>
-        ) : <div className="notice">目前尚未加入任何學校／隊伍。</div>}
+        {team ? <div className="notice"><b>{team.school_name || '未設定學校'}</b>｜{team.sport_name || '未設定運動'}｜{team.name}<br/><span className="muted">你目前所有學生、訓練、評量、比賽與接送資料都屬於這個隊伍工作區。</span></div> : <div className="notice">目前尚未加入任何學校／隊伍。</div>}
         <div className="topNav" style={{marginTop:12}}><Link href="/settings">⚙️ 開啟設定</Link></div>
       </section>
 
@@ -68,7 +63,7 @@ export default async function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>03</span><h2>開發順序</h2></div></div>
-        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫、庫存異動與球皮／球板代工規則都有可用版本；接下來會持續完善器材與隊務內容。</div>
+        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫／庫存、球皮與球板教學、代工規則都有可用版本；接下來可繼續完善隊規、職涯與器材型號資料。</div>
       </section>
     </main>
   );
