@@ -26,6 +26,20 @@ function parseGender(value: FormDataEntryValue | null) {
   return VALID_GENDERS.has(gender) ? gender : null;
 }
 
+function normalizeImportedStudent(raw:any) {
+  const name = String(raw.display_name ?? raw['姓名'] ?? raw.name ?? '').trim();
+  const gradeRaw = raw.grade ?? raw['年級'] ?? '';
+  const gradeNumber = Number(String(gradeRaw).replace(/年級|年/g,''));
+  const genderRaw = String(raw.gender ?? raw['性別'] ?? '').trim();
+  return {
+    display_name: name,
+    grade: Number.isInteger(gradeNumber) && gradeNumber >= 1 && gradeNumber <= 6 ? gradeNumber : null,
+    class_name: String(raw.class_name ?? raw['班級'] ?? raw.className ?? '').trim() || null,
+    gender: VALID_GENDERS.has(genderRaw) ? genderRaw : null,
+    active: raw.active === false || String(raw['狀態'] ?? '').includes('停用') ? false : true,
+  };
+}
+
 export async function addStudent(formData: FormData) {
   const displayName = String(formData.get('display_name') ?? '').trim();
   if (!displayName) return;
@@ -49,9 +63,7 @@ export async function batchAddStudents(formData: FormData) {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const parts = line.includes('\t')
-        ? line.split('\t')
-        : line.split(/[,，]/);
+      const parts = line.includes('\t') ? line.split('\t') : line.split(/[,，]/);
       const [nameRaw, gradeRaw = '', classRaw = '', genderRaw = ''] = parts.map((part) => part.trim());
       const gradeNumber = Number(gradeRaw.replace(/年級|年/g, ''));
       return {
@@ -65,6 +77,19 @@ export async function batchAddStudents(formData: FormData) {
 
   if (!rows.length) redirect('/students?error=' + encodeURIComponent('沒有讀到可新增的學生資料'));
 
+  const supabase = await requireUser();
+  const { error } = await supabase.from('students').insert(rows);
+  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  revalidatePath('/students');
+}
+
+export async function importStudentsData(formData: FormData) {
+  const raw = String(formData.get('import_payload') ?? '').trim();
+  if (!raw) return;
+  let parsed:any[] = [];
+  try { parsed = JSON.parse(raw); } catch { redirect('/students?error=' + encodeURIComponent('匯入檔案格式錯誤')); }
+  const rows = (Array.isArray(parsed) ? parsed : []).map(normalizeImportedStudent).filter(row => row.display_name && row.display_name !== '姓名');
+  if (!rows.length) redirect('/students?error=' + encodeURIComponent('匯入檔案中沒有可新增的學生'));
   const supabase = await requireUser();
   const { error } = await supabase.from('students').insert(rows);
   if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
