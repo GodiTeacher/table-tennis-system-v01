@@ -5,61 +5,19 @@ import { createClient } from '@/lib/supabase/server';
 import { setTheme } from './actions';
 
 const THEMES = [
-  {
-    id: 'current',
-    name: '目前配色',
-    desc: '維持現在的灰白、深藍灰風格，最中性。',
-    swatches: ['#273444', '#edf1f5', '#ffffff'],
-  },
-  {
-    id: 'clean',
-    name: '專業清爽',
-    desc: '藍綠＋淡橘，乾淨、穩定，又比目前更有層次。',
-    swatches: ['#2f7e79', '#e7f5f3', '#f6b94c'],
-  },
-  {
-    id: 'teaching',
-    name: '活潑教學感',
-    desc: '柔和藍＋暖黃，適合教學與學生管理，但不會太花。',
-    swatches: ['#4f73b8', '#edf3ff', '#f2bf4d'],
-  },
-  {
-    id: 'competitive',
-    name: '競技感',
-    desc: '深藍綠＋亮橘，對比更明確，偏球隊與比賽風格。',
-    swatches: ['#173f4a', '#e8f1f2', '#e97835'],
-  },
-  {
-    id: 'sunset',
-    name: '晴空珊瑚',
-    desc: '亮藍＋珊瑚橘＋暖黃，比較繽紛，但維持乾淨底色。',
-    swatches: ['#2f80d0', '#ff7a6b', '#ffd66b'],
-  },
-  {
-    id: 'berry',
-    name: '莓果繽紛',
-    desc: '莓紫＋粉紅＋奶油黃，活潑柔和，適合想要更有個性的介面。',
-    swatches: ['#8358b3', '#ec6f91', '#ffd978'],
-  },
-  {
-    id: 'pingpong',
-    name: '桌球主題',
-    desc: '球桌綠＋球拍紅，背景加入低調桌球拍與球的圖案。',
-    swatches: ['#0f6b58', '#e23c3c', '#ffffff'],
-  },
+  { id: 'current', name: '目前配色', desc: '維持現在的灰白、深藍灰風格，最中性。', swatches: ['#273444', '#edf1f5', '#ffffff'] },
+  { id: 'clean', name: '專業清爽', desc: '藍綠＋淡橘，乾淨、穩定，又比目前更有層次。', swatches: ['#2f7e79', '#e7f5f3', '#f6b94c'] },
+  { id: 'teaching', name: '活潑教學感', desc: '柔和藍＋暖黃，適合教學與學生管理，但不會太花。', swatches: ['#4f73b8', '#edf3ff', '#f2bf4d'] },
+  { id: 'competitive', name: '競技感', desc: '深藍綠＋亮橘，對比更明確，偏球隊與比賽風格。', swatches: ['#173f4a', '#e8f1f2', '#e97835'] },
+  { id: 'sunset', name: '晴空珊瑚', desc: '亮藍＋珊瑚橘＋暖黃，比較繽紛，但維持乾淨底色。', swatches: ['#2f80d0', '#ff7a6b', '#ffd66b'] },
+  { id: 'berry', name: '莓果繽紛', desc: '莓紫＋粉紅＋奶油黃，活潑柔和，適合想要更有個性的介面。', swatches: ['#8358b3', '#ec6f91', '#ffd978'] },
+  { id: 'pingpong', name: '桌球主題', desc: '球桌綠＋球拍紅，背景加入低調桌球拍與球的圖案。', swatches: ['#0f6b58', '#e23c3c', '#ffffff'] },
+  { id: 'equipment', name: '桌球器材風', desc: '球桌綠、紅黑雙面球拍、白球、球網與場地線條，桌球元素最完整。', swatches: ['#0b5f4b', '#d83a3a', '#17191d'] },
 ] as const;
 
-const ROLE_TEXT: Record<string, string> = {
-  owner: '擁有者',
-  admin: '管理員',
-  coach: '一般成員',
-};
+const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ message?: string; error?: string }>;
-}) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ message?: string; error?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
   const { data: userData } = await supabase.auth.getUser();
@@ -99,18 +57,14 @@ export default async function SettingsPage({
 
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>介面主題</h2></div><strong>目前：{THEMES.find((theme) => theme.id === currentTheme)?.name ?? '目前配色'}</strong></div>
-        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。現在共有 7 種風格可選。</p>
+        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。現在共有 8 種風格可選。</p>
         <div className="themeChoiceGrid">
           {THEMES.map((theme) => (
             <form action={setTheme} key={theme.id} className={`themeChoiceCard ${currentTheme === theme.id ? 'selected' : ''}`}>
               <input type="hidden" name="theme" value={theme.id} />
-              <div className="themeSwatches" aria-hidden="true">
-                {theme.swatches.map((color) => <span key={color} style={{ background: color }} />)}
-              </div>
+              <div className="themeSwatches" aria-hidden="true">{theme.swatches.map((color) => <span key={color} style={{ background: color }} />)}</div>
               <div className="themeChoiceText"><b>{theme.name}</b><p>{theme.desc}</p></div>
-              <button className={currentTheme === theme.id ? 'primaryButton' : 'secondaryButton'} disabled={currentTheme === theme.id}>
-                {currentTheme === theme.id ? '目前使用中' : '套用主題'}
-              </button>
+              <button className={currentTheme === theme.id ? 'primaryButton' : 'secondaryButton'} disabled={currentTheme === theme.id}>{currentTheme === theme.id ? '目前使用中' : '套用主題'}</button>
             </form>
           ))}
         </div>
