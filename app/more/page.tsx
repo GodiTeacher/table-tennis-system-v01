@@ -4,14 +4,16 @@ import { createClient } from '@/lib/supabase/server';
 
 const MODULES = [
   { title: '帳號申請管理', desc: '查看待審核帳號，核准後加入目前球隊工作區。', status: '已可使用', href: '/more/accounts' },
-  { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V1 已可使用', href: '/rubber-catalog' },
+  { title: '自訂訓練項目', desc: '在系統預設技能之外，建立隊伍自己的訓練項目並設定適用 A～F 程度。', status: '已可使用', href: '/training-items' },
+  { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V2 已可使用', href: '/rubber-catalog' },
+  { title: '球皮庫存異動', desc: '記錄入庫、出庫、盤點與比賽領用；比賽已黏貼後自動扣庫存並保留學生歷史用皮。', status: 'V2 已可使用', href: '/rubber-inventory' },
   { title: '球皮介紹', desc: '整理球皮類型、特性、適合打法與選購建議。', status: '規劃中' },
   { title: '球板介紹', desc: '整理球板結構、速度控制、打法適配與選擇建議。', status: '規劃中' },
   { title: '球皮／球板代工規則', desc: '統一代購、黏貼、裁切、護邊與收費規則。', status: '規劃中' },
   { title: '桌球職涯介紹', desc: '從校隊、競賽、升學到未來發展的桌球學習路徑。', status: '規劃中' },
   { title: '隊規', desc: '集中管理球隊規範、訓練要求與家長須知。', status: '規劃中' },
-  { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、家長／教練接送、座位與每位學生車資。', status: 'V2 建置中', href: '/competitions' },
-  { title: '比賽球皮管理', desc: '直接綁定參賽名單，快速配置正反手球皮並彙整需求、庫存、訂貨與付款進度。', status: 'V2 建置中', href: '/competition-rubbers' },
+  { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、家長／教練接送、座位與每位學生車資。', status: 'V2 已可使用', href: '/competitions' },
+  { title: '比賽球皮管理', desc: '直接綁定參賽名單，快速配置正反手球皮並彙整需求、庫存、訂貨與付款進度。', status: 'V2 已可使用', href: '/competition-rubbers' },
 ];
 
 const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
@@ -68,7 +70,7 @@ export default async function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>03</span><h2>開發順序</h2></div></div>
-        <div className="notice"><b>目前進度：</b>帳號／學校隊伍權限、訓練、學生、比賽接送都已有可用版本；目前正把球皮管理升級成「資料庫庫存 → 參賽名單快速配置 → 訂貨與收費統計」的完整流程。</div>
+        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫與庫存異動都有可用版本；接下來會持續完善器材與隊務內容。</div>
       </section>
     </main>
   );
