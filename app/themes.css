@@ -1,0 +1,26 @@
+body.theme-current{--theme-primary:#273444;--theme-soft:#f3f6f8;--theme-page:#f5f7fb;--theme-accent:#718096;--theme-border:#dce2ea;--theme-hero-a:transparent;--theme-hero-b:transparent}
+body.theme-clean{--theme-primary:#2f7e79;--theme-soft:#e7f5f3;--theme-page:#f3f8f7;--theme-accent:#d99b2b;--theme-border:#cfe4e1;--theme-hero-a:#e9f7f5;--theme-hero-b:#fff5df}
+body.theme-teaching{--theme-primary:#4f73b8;--theme-soft:#edf3ff;--theme-page:#f5f7fc;--theme-accent:#c99326;--theme-border:#d7e0f3;--theme-hero-a:#edf3ff;--theme-hero-b:#fff7df}
+body.theme-competitive{--theme-primary:#173f4a;--theme-soft:#e8f1f2;--theme-page:#f3f6f7;--theme-accent:#e97835;--theme-border:#cbdcdf;--theme-hero-a:#e6eff1;--theme-hero-b:#fff0e7}
+
+body:not(.theme-current){background:var(--theme-page)}
+body:not(.theme-current) .hero{background:linear-gradient(135deg,var(--theme-hero-a),var(--theme-hero-b));border:1px solid var(--theme-border);border-radius:24px;padding:24px 22px;margin-bottom:16px}
+body:not(.theme-current) .eyebrow,body:not(.theme-current) .sectionTitle span{color:var(--theme-primary)}
+body:not(.theme-current) .card{border-color:var(--theme-border);box-shadow:0 10px 30px rgba(24,33,47,.065)}
+body:not(.theme-current) .primaryButton,body:not(.theme-current) .selectedChips button,body:not(.theme-current) .chips button,body:not(.theme-current) .item.checked .checkbox,body:not(.theme-current) .attendance.checked>span,body:not(.theme-current) .appBottomNav a.active{background:var(--theme-primary);color:#fff}
+body:not(.theme-current) .secondaryButton{background:var(--theme-soft);color:var(--theme-primary)}
+body:not(.theme-current) .level.active,body:not(.theme-current) .item.checked,body:not(.theme-current) .attendance.checked{border-color:var(--theme-primary);background:var(--theme-soft);box-shadow:inset 0 0 0 1px var(--theme-primary)}
+body:not(.theme-current) .level b,body:not(.theme-current) .checkbox,body:not(.theme-current) .attendance>span,body:not(.theme-current) .orderBadge{background:var(--theme-soft);color:var(--theme-primary)}
+body:not(.theme-current) .notice{background:var(--theme-soft)}
+body:not(.theme-current) .successNotice{background:#eaf7ef;color:#286846}
+body:not(.theme-current) .errorNotice{background:#fff0ee;color:#a23b32}
+body:not(.theme-current) .statusPill.active{background:#eaf7ef;color:#286846}
+body:not(.theme-current) .appBottomNav{border-color:var(--theme-border);box-shadow:0 14px 42px rgba(24,33,47,.18)}
+body:not(.theme-current) .topNav a,body:not(.theme-current) .linkButton{border-color:var(--theme-border)}
+body:not(.theme-current) input:focus,body:not(.theme-current) select:focus,body:not(.theme-current) textarea:focus{outline:2px solid color-mix(in srgb,var(--theme-primary) 28%,transparent);border-color:var(--theme-primary)}
+body.theme-clean .sectionTitle strong,body.theme-teaching .sectionTitle strong,body.theme-competitive .sectionTitle strong{color:var(--theme-primary)}
+
+.themeChoiceGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.themeChoiceCard{border:1px solid #dfe5ec;border-radius:18px;padding:16px;background:#fff;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center}.themeChoiceCard.selected{border-color:var(--theme-primary);box-shadow:inset 0 0 0 1px var(--theme-primary);background:var(--theme-soft)}.themeSwatches{display:flex;gap:5px}.themeSwatches span{width:24px;height:34px;border-radius:8px;border:1px solid rgba(0,0,0,.08)}.themeChoiceText b{display:block;font-size:16px}.themeChoiceText p{margin:5px 0 0;color:#6b7789;font-size:13px;line-height:1.5}.themeChoiceCard button{white-space:nowrap}
+.settingsActionGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.settingsActionCard{display:flex;flex-direction:column;gap:5px;padding:15px;border:1px solid var(--theme-border,#dce2ea);border-radius:15px;text-decoration:none;color:inherit;background:#fbfcfe}.settingsActionCard:hover{background:var(--theme-soft,#f3f6f8)}.settingsActionCard b{font-size:15px}.settingsActionCard span{color:#6f7b8d;font-size:13px}
+
+@media(max-width:760px){.themeChoiceGrid{grid-template-columns:1fr}.themeChoiceCard{grid-template-columns:auto minmax(0,1fr)}.themeChoiceCard button{grid-column:1/-1;width:100%}.settingsActionGrid{grid-template-columns:1fr}}
