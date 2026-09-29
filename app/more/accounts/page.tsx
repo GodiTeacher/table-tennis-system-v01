@@ -26,7 +26,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Pro
       <section className="hero compactHero">
         <div className="eyebrow">ACCOUNT ACCESS</div><h1>學校／隊伍帳號管理</h1>
         <p>每個「學校 × 隊伍」都有自己的管理員。其他使用者申請加入後，由隊伍管理員決定角色與可使用模組。</p>
-        <div className="topNav"><Link href="/more">返回更多</Link><Link href="/students">學生管理</Link><Link href="/today">今日訓練</Link></div>
+        <div className="topNav"><Link href="/settings">返回設定</Link><Link href="/students">學生管理</Link><Link href="/today">今日訓練</Link></div>
       </section>
 
       {query.approved ? <div className="notice successNotice"><b>已核准加入：</b>權限已套用。</div> : null}
