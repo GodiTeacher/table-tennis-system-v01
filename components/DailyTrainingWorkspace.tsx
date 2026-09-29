@@ -1,8 +1,9 @@
 'use client';
 
+import Link from 'next/link';
 import { useActionState, useMemo, useState } from 'react';
 import { TRAINING_LEVELS, type TrainingLevelId } from '@/lib/training-levels';
-import { TRAINING_ITEMS, getItemsForLevel } from '@/lib/training-items';
+import { TRAINING_ITEMS, type TrainingItem } from '@/lib/training-items';
 import { saveTrainingSession, type SaveTrainingState } from '@/app/today/actions';
 
 type Student = {
@@ -28,13 +29,16 @@ function clampNumber(value: string, min: number, fallback: number) {
 export default function DailyTrainingWorkspace({
   students,
   initialItemIds = [],
+  customItems = [],
 }: {
   students: Student[];
   initialItemIds?: string[];
+  customItems?: TrainingItem[];
 }) {
+  const allItems = useMemo(() => [...TRAINING_ITEMS, ...customItems], [customItems]);
   const validInitialItems = initialItemIds
     .filter((id, index, array) => array.indexOf(id) === index)
-    .filter((id) => TRAINING_ITEMS.some((item) => item.id === id))
+    .filter((id) => allItems.some((item) => item.id === id))
     .slice(0, 8);
   const startingItems = validInitialItems.length ? validInitialItems : DEFAULT_ITEMS;
 
@@ -52,8 +56,8 @@ export default function DailyTrainingWorkspace({
   const minutes = clampNumber(minutesInput, 15, 90);
   const tables = clampNumber(tablesInput, 1, 3);
   const visibleItems = useMemo(
-    () => (showAll ? TRAINING_ITEMS : getItemsForLevel(activeLevel)),
-    [activeLevel, showAll]
+    () => showAll ? allItems : allItems.filter((item) => item.recommendedLevels.includes(activeLevel)),
+    [activeLevel, showAll, allItems]
   );
 
   const attendanceGroups = useMemo(() => {
@@ -66,7 +70,6 @@ export default function DailyTrainingWorkspace({
       if (genderA !== genderB) return genderA - genderB;
       return a.display_name.localeCompare(b.display_name, 'zh-Hant');
     });
-
     const groups = new Map<string, Student[]>();
     for (const student of sorted) {
       const key = student.grade ? `${student.grade}年級` : '未設定年級';
@@ -79,8 +82,8 @@ export default function DailyTrainingWorkspace({
 
   const selectedItems = planOrder
     .filter((id) => selectedItemIds.has(id))
-    .map((id) => TRAINING_ITEMS.find((item) => item.id === id))
-    .filter(Boolean) as typeof TRAINING_ITEMS;
+    .map((id) => allItems.find((item) => item.id === id))
+    .filter(Boolean) as TrainingItem[];
 
   const tablePlan = useMemo(() => {
     if (!people || tables <= 0) return [];
@@ -187,7 +190,8 @@ export default function DailyTrainingWorkspace({
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>02</span><h2>程度與訓練項目</h2></div><strong>{selectedItems.length} 項已選</strong></div>
+        <div className="sectionTitle"><div><span>02</span><h2>程度與訓練項目</h2></div><div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap',justifyContent:'flex-end'}}><strong>{selectedItems.length} 項已選</strong><Link href="/training-items" className="secondaryButton">＋ 自訂訓練項目</Link></div></div>
+        {customItems.length ? <div className="notice"><b>隊伍自訂：</b>目前有 {customItems.length} 個啟用中的自訂訓練項目，會依你設定的 A～F 程度一起出現在推薦清單。</div> : null}
         {validInitialItems.length ? <div className="notice successNotice"><b>能力建議已帶入：</b>目前預先選了 {validInitialItems.length} 個較需要加強的技能；教練仍可自由增減。</div> : null}
         <div className="levelGrid">
           {TRAINING_LEVELS.map((level) => <button type="button" key={level.id} className={activeLevel === level.id ? 'level active' : 'level'} onClick={() => setActiveLevel(level.id)}>
@@ -199,8 +203,9 @@ export default function DailyTrainingWorkspace({
         <div className="itemGrid">
           {visibleItems.map((item) => {
             const checked = selectedItemIds.has(item.id);
+            const custom = item.id.startsWith('CUSTOM-');
             return <button type="button" key={item.id} className={checked ? 'item checked' : 'item'} onClick={() => toggleItem(item.id)}>
-              <span className="checkbox">{checked ? '✓' : '+'}</span><div><b>{item.name}</b><small>{item.domain} · {item.subcategory}</small></div>
+              <span className="checkbox">{checked ? '✓' : '+'}</span><div><b>{item.name}{custom ? ' ・自訂' : ''}</b><small>{item.domain} · {item.subcategory}</small></div>
             </button>;
           })}
         </div>
