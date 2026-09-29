@@ -1,5 +1,7 @@
 'use client';
 
+import { canvasToBlob, saveOrShareBlob } from '@/lib/client-download';
+
 type RubberSide = {
   side: string;
   label: string;
@@ -71,8 +73,10 @@ function downloadBlob(content:string, type:string, filename:string) {
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  window.setTimeout(()=>URL.revokeObjectURL(url),1500);
 }
 
 function csvEscape(value: unknown) {
@@ -111,7 +115,7 @@ function drawWrapped(ctx:CanvasRenderingContext2D, text:string, x:number, y:numb
   return yy + lineHeight;
 }
 
-function exportImage(props:Props, mode:'coach'|'parent') {
+async function exportImage(props:Props, mode:'coach'|'parent') {
   const scale = 2;
   const width = 760;
   const perStudent = mode === 'coach' ? 150 : 125;
@@ -154,16 +158,18 @@ function exportImage(props:Props, mode:'coach'|'parent') {
     }
     y += perStudent;
   }
-  const a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
-  a.download = `${props.competitionName}-${mode==='coach'?'教練版':'家長版'}-球皮整理.png`;
-  a.click();
+  try{
+    const blob=await canvasToBlob(canvas);
+    await saveOrShareBlob(blob,`${props.competitionName}-${mode==='coach'?'教練版':'家長版'}-球皮整理.png`,`${props.competitionName} 球皮整理`);
+  }catch{
+    alert('圖片產生失敗，請稍後再試。');
+  }
 }
 
 export default function RubberExportTools(props:Props) {
   return <div className="rubberExportTools">
     <div className="exportGroup"><b>LINE</b><button type="button" onClick={()=>copyText(coachText(props))}>複製教練版</button><button type="button" onClick={()=>copyText(parentText(props))}>複製家長版</button></div>
-    <div className="exportGroup"><b>圖片</b><button type="button" onClick={()=>exportImage(props,'coach')}>教練版圖片</button><button type="button" onClick={()=>exportImage(props,'parent')}>家長版圖片</button></div>
+    <div className="exportGroup"><b>圖片</b><button type="button" onClick={()=>exportImage(props,'coach')}>教練版圖片／分享</button><button type="button" onClick={()=>exportImage(props,'parent')}>家長版圖片／分享</button></div>
     <div className="exportGroup"><b>資料</b><button type="button" onClick={()=>exportCsv(props)}>Excel / CSV</button><button type="button" onClick={()=>exportJson(props)}>JSON</button></div>
     <style>{`.rubberExportTools{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0}.exportGroup{display:flex;align-items:center;gap:7px;padding:8px 10px;border:1px solid #e0e5eb;border-radius:14px;background:#fff}.exportGroup b{font-size:12px;color:#687588}.exportGroup button{border:0;border-radius:9px;padding:8px 10px;background:#edf1f5;color:#243246;font-weight:800;cursor:pointer}@media(max-width:620px){.rubberExportTools,.exportGroup{width:100%}.exportGroup{display:grid;grid-template-columns:auto 1fr 1fr}.exportGroup button{width:100%}}`}</style>
   </div>;
