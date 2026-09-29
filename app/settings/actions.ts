@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
-const THEMES = new Set(['current', 'clean', 'teaching', 'competitive', 'sunset', 'berry', 'pingpong']);
+const THEMES = new Set(['current', 'clean', 'teaching', 'competitive', 'sunset', 'berry', 'pingpong', 'equipment']);
 
 export async function setTheme(formData: FormData) {
   const theme = String(formData.get('theme') ?? '');
