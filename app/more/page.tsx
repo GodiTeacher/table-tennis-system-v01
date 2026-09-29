@@ -3,6 +3,7 @@ import LogoutButton from '@/components/LogoutButton';
 import { createClient } from '@/lib/supabase/server';
 
 const MODULES = [
+  { title: '帳號設定', desc: '更換登入密碼、管理自己的帳號與刪除帳號。', status: '已可使用', href: '/account' },
   { title: '帳號申請管理', desc: '查看待審核帳號，核准後加入目前球隊工作區。', status: '已可使用', href: '/more/accounts' },
   { title: '自訂訓練項目', desc: '在系統預設技能之外，建立隊伍自己的訓練項目並設定適用 A～F 程度。', status: '已可使用', href: '/training-items' },
   { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V2 已可使用', href: '/rubber-catalog' },
@@ -54,7 +55,7 @@ export default async function MorePage() {
             <br/><span className="muted">你目前所有學生、訓練、評量、比賽與接送資料都屬於這個隊伍工作區。</span>
           </div>
         ) : <div className="notice">目前尚未加入任何學校／隊伍。</div>}
-        <div className="topNav" style={{marginTop:12}}><Link href="/more/accounts">帳號申請管理</Link></div>
+        <div className="topNav" style={{marginTop:12}}><Link href="/account">帳號設定</Link><Link href="/more/accounts">帳號申請管理</Link></div>
         <div style={{marginTop:12}}><LogoutButton /></div>
       </section>
 
