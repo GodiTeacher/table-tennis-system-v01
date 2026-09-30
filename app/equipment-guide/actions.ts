@@ -42,3 +42,28 @@ export async function saveGuidePrice(formData: FormData) {
   revalidatePath(returnTo);
   redirect(`${returnTo}?message=${encodeURIComponent('參考價格已更新。')}`);
 }
+
+export async function saveGuidePreference(formData: FormData) {
+  const key = String(formData.get('preference_key') ?? '').trim();
+  const value = String(formData.get('preference_value') ?? '').trim();
+  const allowedValues = key === 'team_handle_style' ? new Set(['fl','st','an','mixed','unset']) : new Set<string>();
+  if (!key || !allowedValues.has(value)) redirect('/blade-guide?error=' + encodeURIComponent('球隊器材設定格式錯誤。'));
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect('/login');
+  const { data: teamId } = await supabase.rpc('current_team_id');
+  if (!teamId) redirect('/blade-guide?error=' + encodeURIComponent('目前沒有可使用的隊伍工作區。'));
+
+  const { error } = await supabase.from('equipment_guide_preferences').upsert({
+    team_id: teamId,
+    preference_key: key,
+    preference_value: value,
+    updated_by: userId,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'team_id,preference_key' });
+  if (error) redirect('/blade-guide?error=' + encodeURIComponent(error.message));
+  revalidatePath('/blade-guide');
+  redirect('/blade-guide?message=' + encodeURIComponent('球隊握柄設定已更新。'));
+}
