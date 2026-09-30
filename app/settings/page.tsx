@@ -13,6 +13,8 @@ const THEMES = [
   { id: 'berry', name: '莓果繽紛', desc: '莓紫＋粉紅＋奶油黃，活潑柔和，適合想要更有個性的介面。', swatches: ['#8358b3', '#ec6f91', '#ffd978'] },
   { id: 'pingpong', name: '桌球主題', desc: '球桌綠＋球拍紅，背景加入低調桌球拍與球的圖案。', swatches: ['#0f6b58', '#e23c3c', '#ffffff'] },
   { id: 'equipment', name: '桌球器材風', desc: '球桌綠、紅黑雙面球拍、白球、球網與場地線條，桌球元素最完整。', swatches: ['#0b5f4b', '#d83a3a', '#17191d'] },
+  { id: 'candy', name: '糖果派對', desc: '湖水綠＋珊瑚粉＋亮黃＋天藍，刻意更花、更有學生 App 的活力感。', swatches: ['#11a9a3', '#ff6f91', '#ffd84d', '#4f9cff'] },
+  { id: 'neon', name: '霓虹撞色', desc: '紫、桃紅、亮青綠與電光藍，對比最強、最有運動潮流感。', swatches: ['#6930c3', '#ff3d8d', '#00c9a7', '#2d7ff9'] },
 ] as const;
 
 const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
@@ -57,7 +59,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
       <section className="card">
         <div className="sectionTitle"><div><span>01</span><h2>介面主題</h2></div><strong>目前：{THEMES.find((theme) => theme.id === currentTheme)?.name ?? '目前配色'}</strong></div>
-        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。現在共有 8 種風格可選。</p>
+        <p className="muted">主題只套用在你自己的帳號，不會改到同隊其他教練的介面。現在共有 10 種風格可選。</p>
         <div className="themeChoiceGrid">
           {THEMES.map((theme) => (
             <form action={setTheme} key={theme.id} className={`themeChoiceCard ${currentTheme === theme.id ? 'selected' : ''}`}>
