@@ -13,6 +13,7 @@ const MODULES = [
   { title: '球隊規範', desc: '10 大類集中管理：隊員、比賽、收退費、月費請假、器材、接送、家長、點數、場地與冷氣。', status: 'V1 已可使用', href: '/team-standards' },
   { title: '點數紀錄', desc: '教練自由新增加點／扣點，記錄原因、日期與備註；誤登紀錄可刪除並自動重算總分。', status: 'V1 已可使用', href: '/points' },
   { title: '冷氣度數／費用', desc: '每月登記電表起訖、每度單價與固定費，並記錄時段、年級、度數與學生人數供後續分攤。', status: 'V1 已可使用', href: '/aircon' },
+  { title: '比賽倒數', desc: '同時查看未扣假日與扣除週末／自訂休假日後的倒數，距離越近顏色越醒目。', status: 'V1 已可使用', href: '/competition-countdown' },
   { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、由教練協調接送車輛、座位與每位學生車資。', status: 'V2 已可使用', href: '/competitions' },
   { title: '比賽球皮管理', desc: '直接綁定參賽名單，快速配置正反手球皮並彙整需求、庫存、訂貨與付款進度。', status: 'V2 已可使用', href: '/competition-rubbers' },
 ];
@@ -40,6 +41,6 @@ export default async function MorePage() {
     <section className="hero compactHero"><div className="eyebrow">TABLE TENNIS SYSTEM V01</div><h1>更多功能</h1><p>整合器材、比賽、隊務、費用與設定；同一球隊工作區共享資料，不同工作區彼此隔離。</p><div className="topNav"><Link href="/today">今日訓練</Link><Link href="/students">學生管理</Link><Link href="/history">歷史訓練</Link><Link href="/competitions">比賽管理</Link><Link href="/settings">設定</Link></div></section>
     <section className="card"><div className="sectionTitle"><div><span>01</span><h2>目前學校與隊伍</h2></div>{memberRole?<strong>{ROLE_TEXT[memberRole]??memberRole}</strong>:null}</div>{team?<div className="notice"><b>{team.school_name||'未設定學校'}</b>｜{team.sport_name||'未設定運動'}｜{team.name}<br/><span className="muted">學生、訓練、比賽、點數與冷氣費資料都屬於這個隊伍工作區。</span></div>:<div className="notice">目前尚未加入任何學校／隊伍。</div>}<div className="topNav" style={{marginTop:12}}><Link href="/settings">⚙️ 開啟設定</Link></div></section>
     <section className="card"><div className="sectionTitle"><div><span>02</span><h2>功能 Roadmap</h2></div><strong>{MODULES.length} 個模組</strong></div><div className="moreModuleGrid">{MODULES.map(module=><Link className="moreModuleCard" href={module.href} key={module.title}><div className="moreModuleTop"><b>{module.title}</b><span>{module.status}</span></div><p>{module.desc}</p></Link>)}</div></section>
-    <section className="card"><div className="sectionTitle"><div><span>03</span><h2>目前進度</h2></div></div><div className="notice">核心訓練、學生、能力評量、比賽接送、器材、世界前 10、代工規則、桌球職涯、10 大類球隊規範、點數紀錄與冷氣費 V1 均已有可用版本。</div></section>
+    <section className="card"><div className="sectionTitle"><div><span>03</span><h2>目前進度</h2></div></div><div className="notice">核心訓練、學生、能力評量、比賽接送、比賽倒數、器材、世界前 10、代工規則、桌球職涯、10 大類球隊規範、點數紀錄與冷氣費 V1 均已有可用版本。</div></section>
   </main>;
 }
