@@ -5,63 +5,70 @@ import { createClient } from '@/lib/supabase/server';
 const STRUCTURES = [
   {
     key:'fivewood', name:'五夾純木', tag:'控制與手感', price:[1200,3000],
-    desc:'五層木材組成，沒有人工纖維。持球感與回饋通常較自然，適合建立完整發力與摩擦感。',
+    desc:'五層天然木材組成，沒有人工纖維。回饋通常自然、持球感清楚，適合建立完整發力與摩擦感。',
     fit:'初學、控制型、正在建立完整動作的選手',
-    models:['STIGA Allround Classic','Butterfly Petr Korbel','Nittaku Acoustic'],
-    star:'Truls Möregårdh（成長案例）', starBlade:'STIGA Allround Classic',
-    style:'STIGA 表示 Truls 早期就是用 Allround Classic 學習技術；他現在的打法以創意、節奏變化與強力正手聞名。',
-    source:'https://www.stigasports.com/en-gb/players-teams-tt/truls-moregardh', sourceLabel:'STIGA｜Truls', layers:['wood','wood','core','wood','wood']
+    models:['Butterfly Petr Korbel','Nittaku Acoustic','STIGA Allround Classic'],
+    cases:[
+      {country:'日本',name:'純木訓練思路',blade:'Petr Korbel／Acoustic 類五夾純木',style:'五夾純木常被當作建立摩擦、弧圈與手感的基礎方向；此處以典型款式示範，不硬把現役球星綁定到未經官方確認的器材。',source:'https://www.butterfly-global.com/en/products/blade/',sourceLabel:'Butterfly 球板目錄'}
+    ],
+    layers:['wood','wood','core','wood','wood']
   },
   {
     key:'sevenwood', name:'七夾純木', tag:'扎實＋直接', price:[1600,3500],
     desc:'七層純木提供更高支撐與直接感，通常比五夾更適合近台快攻、主動撞擊與快速銜接。',
     fit:'快攻、近台、喜歡扎實球感的選手',
     models:['STIGA Clipper Wood','Butterfly SK7 Classic','Nittaku Barwell'],
-    star:'劉國樑（經典案例）', starBlade:'STIGA Clipper Wood',
-    style:'STIGA 官方列出劉國樑球員時期使用 Clipper Wood；他的代表打法是直拍近台快攻，以快速前三板與主動搶攻施壓。',
-    source:'https://www.stigasports.com/en/product/clipper-wood', sourceLabel:'STIGA｜Clipper Wood', layers:['wood','wood','wood','core','wood','wood','wood']
+    cases:[
+      {country:'中國',name:'劉國樑',blade:'STIGA Clipper Wood',style:'經典直拍近台快攻案例。STIGA 將 Clipper Wood 與劉國樑球員時期連結；打法特色是前三板節奏快、近台主動搶攻與快速施壓。',source:'https://www.stigasports.com/en/product/clipper-wood',sourceLabel:'STIGA｜Clipper Wood'}
+    ],
+    layers:['wood','wood','wood','core','wood','wood','wood']
   },
   {
     key:'inner', name:'內置纖維', tag:'持球＋底勁', price:[2800,6500],
-    desc:'纖維靠近芯材。小力量時較像純木，發大力時纖維才明顯介入，常被用來兼顧持球與上限。',
+    desc:'纖維靠近芯材。小力量時較接近木板感，大力量時纖維支撐才更明顯，常被用來兼顧持球與上限。',
     fit:'弧圈、全面型、想兼顧手感與支撐的選手',
-    models:['Butterfly Ovtcharov Innerforce ALC','Harimoto Tomokazu Innerforce ALC','Innerforce Layer ALC'],
-    star:'Dimitrij Ovtcharov', starBlade:'Ovtcharov Innerforce ALC',
-    style:'Butterfly 將他描述為右手橫拍進攻型，特色是變化發球與強力正反手；內置 ALC 保留持球感，同時支援大力量擊球。',
-    source:'https://www.butterfly-global.com/en/product/ovtcharov-dimitrij/', sourceLabel:'Butterfly｜Ovtcharov', layers:['wood','wood','fiber','core','fiber','wood','wood']
+    models:['Harimoto Tomokazu Innerforce ALC','Innerforce Layer ALC','Harimoto Tomokazu Innerforce Super ALC'],
+    cases:[
+      {country:'日本',name:'張本智和',blade:'Harimoto Tomokazu Innerforce ALC／Super ALC',style:'Butterfly 將張本智和系列描述為支援近台防守與攻擊性打法；他的特色是細膩小球、快速正反手銜接與近台兩面進攻。',source:'https://www.butterfly-global.com/catalog/2025tc/37/',sourceLabel:'Butterfly 2025 Catalog'}
+    ],
+    layers:['wood','wood','fiber','core','fiber','wood','wood']
   },
   {
     key:'outer', name:'外置纖維', tag:'速度＋甜區', price:[3000,7000],
     desc:'纖維靠近表層木，較早介入擊球，甜區、速度與出球直接感通常更明顯。',
     fit:'競賽、快速銜接、已有穩定基本動作的選手',
-    models:['Butterfly Viscaria','Fan Zhendong ALC','Lin Yun-Ju Super ZLC'],
-    star:'Fan Zhendong／Lin Yun-Ju', starBlade:'Fan Zhendong ALC、Lin Yun-Ju Super ZLC',
-    style:'Fan Zhendong 系列強調快速節奏、反手擰拉與弧圈進攻；林昀儒則以細膩手感、反手擰拉與快速反拉著稱。',
-    source:'https://www.butterfly-global.com/en/product/fan-zhendong/', sourceLabel:'Butterfly｜FZD / LYJ', layers:['wood','fiber','wood','core','wood','fiber','wood']
+    models:['Butterfly Fan Zhendong ALC','Butterfly Viscaria','Lin Yun-Ju Super ZLC'],
+    cases:[
+      {country:'中國',name:'樊振東',blade:'Fan Zhendong ALC',style:'Butterfly 的球員／器材頁面指出這支 ALC 的速度、手感與弧線符合他的比賽需求；打法可用「高品質兩面進攻、快速銜接、反手擰拉後持續加壓」來理解。',source:'https://www.butterfly-global.com/en/product/fan-zhendong/goods.html',sourceLabel:'Butterfly｜Fan Zhendong'},
+      {country:'台灣',name:'林昀儒',blade:'Lin Yun-Ju Super ZLC',style:'Butterfly 明確將林昀儒與 Super ZLC 連結，並提到他的高品質擰拉與快速反拉；很適合作為外置高反彈纖維＋細膩手感的案例。',source:'https://www.butterfly-global.com/en/product/lin_yun-ju/',sourceLabel:'Butterfly｜Lin Yun-Ju'}
+    ],
+    layers:['wood','fiber','wood','core','wood','fiber','wood']
   },
   {
-    key:'special', name:'特殊板形／科技纖維', tag:'甜區與平衡科技', price:[4000,8500],
-    desc:'除了夾層，板形與配重科技也會改變甜區、重心與揮拍感；例如 Cybershape 把有效擊球區往上放大。',
-    fit:'已有清楚需求、想調整甜區／重心／節奏的進階選手',
-    models:['STIGA Cybershape Carbon CWT','Cybershape Carbon CWT Truls Edition','Butterfly Super ALC / Super ZLC 系列'],
-    star:'Truls Möregårdh', starBlade:'Cybershape Carbon CWT Truls Edition',
-    style:'STIGA 現行資料列出 Truls 使用 Cybershape Carbon；他的特色是創意擊球、節奏切換、Cyberblock 與強力正手。',
-    source:'https://www.stigasports.com/en-row/product/cybershape-carbon-cwt-truls-edition', sourceLabel:'STIGA｜Cybershape', layers:['wood','wood','fiber','core','fiber','wood','wood']
+    key:'special', name:'高階纖維／特殊科技', tag:'高反彈＋大甜區', price:[4000,8500],
+    desc:'Super ALC、Super ZLC 等高階纖維強調更大的高反彈區與速度上限；這類器材通常更需要完整動作與精準控制。',
+    fit:'有明確打法需求、穩定性成熟的進階／競賽選手',
+    models:['Lin Yun-Ju Super ZLC','Harimoto Tomokazu Innerforce Super ALC','Butterfly Super ALC 系列'],
+    cases:[
+      {country:'台灣',name:'林昀儒',blade:'Lin Yun-Ju Super ZLC',style:'以擰拉、快撕／反拉與快速節奏見長，官方資料也直接把這支球板與他的高品質擰拉、快速反擊連結。',source:'https://www.butterfly-global.com/en/products/detail/37131.html',sourceLabel:'Butterfly｜Lin Yun-Ju Super ZLC'},
+      {country:'日本',name:'張本智和／張本美和',blade:'Harimoto Tomokazu Innerforce Super ALC',style:'Butterfly 現行產品頁列出張本智和與張本美和為使用者；可作為高階內置纖維追求抓球感與威力並存的案例。',source:'https://www.butterfly-global.com/en/products/detail/37331.html',sourceLabel:'Butterfly｜Innerforce Super ALC'}
+    ],
+    layers:['wood','wood','fiber','core','fiber','wood','wood']
   },
 ] as const;
 
 const PARAMETERS = [
-  ['速度','球離板速度與主動發力後的上限。越快不代表比賽表現一定更好。'],
-  ['控制','短球、落點、被動球與容錯。兒童與初學者尤其重要。'],
-  ['甜區','擊球偏離中心時仍保持穩定回饋的範圍，纖維板通常較大。'],
-  ['持球感','球停留在板上的主觀感受，會影響摩擦、弧圈與小球手感。'],
-  ['震動回饋','擊球後手掌接收到的振動與清晰度；有人喜歡明顯，也有人偏好乾淨。'],
-  ['重量／平衡','整拍重量與重心位置會直接影響揮拍速度、手腕負擔與兒童使用舒適度。'],
-];
+  {name:'速度',left:'較慢／持球久',right:'較快／出球直接',icon:'⚡',desc:'看的是球離板與主動發力後的速度上限。越快不代表越適合，兒童或動作尚未穩定時，太快反而容易失控。'},
+  {name:'控制',left:'容錯較低',right:'容錯較高',icon:'🎯',desc:'指短球、落點、被動球與小力量處理的穩定程度。初學者通常比追求極限速度更需要容錯。'},
+  {name:'甜區',left:'集中',right:'寬廣',icon:'◎',desc:'擊球沒有正中拍面時，還能保持相近回彈與方向的範圍。纖維板通常比純木更容易做出較大的甜區。'},
+  {name:'持球感',left:'乾脆／快離板',right:'咬球／停留感明顯',icon:'🫳',desc:'是主觀的「球在板上停多久」感覺，會影響摩擦、弧圈與小球觸感；不是越久越好。'},
+  {name:'震動回饋',left:'柔和／過濾較多',right:'清楚／震感明顯',icon:'〰️',desc:'擊球後手掌接收到的訊息。有人需要清楚回饋來調整動作，也有人偏好乾淨、柔和的觸感。'},
+  {name:'重量與平衡',left:'輕／柄重',right:'重／頭重',icon:'⚖️',desc:'整拍重量與重心會直接影響揮拍、還原與手腕負擔。兒童選手尤其應看「貼好兩面球皮後」的整拍，而不是只看裸板。'},
+] as const;
 
 const HANDLES = [
   {key:'fl',name:'FL 喇叭柄',tag:'最主流',desc:'尾端較寬、握住後較不易滑脫，市售選擇最多。多數兒童與橫拍選手會先從 FL 開始。'},
-  {key:'st',name:'ST 直柄',tag:'轉換自由',desc:'上下寬度較一致，方便在手中微調握法。STIGA 現行資料顯示 Truls Möregårdh 使用 Straight 直柄。'},
+  {key:'st',name:'ST 直柄',tag:'轉換自由',desc:'上下寬度較一致，方便在手中微調握法，適合喜歡自由調整握拍角度的人。'},
   {key:'an',name:'AN 葫蘆柄',tag:'貼合手型',desc:'中段略收、尾端再放大，包覆感強，但選擇較少，是否適合很看個人手型。'},
 ] as const;
 
@@ -73,6 +80,18 @@ const WEIGHTS = [
 
 function StackDiagram({layers,compact=false}:{layers:readonly string[];compact?:boolean}){
   return <div className={compact ? 'glassStack compact' : 'glassStack'} aria-label="球板切面分層示意">{layers.map((layer,index)=><div key={`${layer}-${index}`} className={`glassLayer ${layer}`} style={{transform:`translate(${index*3}px,${index*2}px)`}}><span>{layer==='fiber'?'纖維':layer==='core'?'芯材':'木層'}</span></div>)}</div>;
+}
+
+function RacketCutaway(){
+  return <div className="racketCutaway" aria-label="正常球拍與切面放大示意">
+    <div className="racketNormal">
+      <div className="racketFace"><div className="cutSquare"><span>切面</span></div></div>
+      <div className="racketHandleMain"/>
+      <small>正常視角</small>
+    </div>
+    <div className="zoomArrow"><span>局部放大</span><b>→</b></div>
+    <div className="cutawayZoom"><StackDiagram layers={['wood','fiber','wood','core','wood','fiber','wood']}/><small>從側面才看得到木層與纖維位置</small></div>
+  </div>;
 }
 
 function HandlePicture({kind}:{kind:'fl'|'st'|'an'}){
@@ -102,34 +121,40 @@ export default async function BladeGuidePage({searchParams}:{searchParams:Promis
   }
   const priceMap = new Map(rows.map(row=>[row.item_key,row]));
 
-  return <main className="shell equipmentGuide bladeGuideV2">
-    <section className="hero compactHero"><div className="eyebrow">BLADE GUIDE</div><h1>球板介紹</h1><p>先看「切面結構」而不是球板正面：木層與纖維的位置，才真正影響持球、反彈、甜區與底勁。</p><div className="topNav"><Link href="/more">返回更多</Link><Link href="/rubber-guide">球皮介紹</Link><Link href="/service-rules">代工規則</Link><Link href="/rubber-catalog">球皮資料庫</Link></div></section>
+  return <main className="shell equipmentGuide bladeGuideV3">
+    <section className="hero compactHero"><div className="eyebrow">BLADE GUIDE</div><h1>球板介紹</h1><p>先看正常球拍，再把拍面局部放大成「切面」；木層與纖維的位置，才真正影響持球、反彈、甜區與底勁。</p><div className="topNav"><Link href="/more">返回更多</Link><Link href="/rubber-guide">球皮介紹</Link><Link href="/service-rules">代工規則</Link><Link href="/rubber-catalog">球皮資料庫</Link></div></section>
     {params.message ? <div className="notice successNotice">{params.message}</div> : null}{params.error ? <div className="notice errorNotice">{params.error}</div> : null}
 
-    <section className="card"><div className="sectionTitle"><div><span>01</span><h2>球板結構應該看「切面」</h2></div></div><div className="diagramSplit">
-      <div className="explodedPanel"><StackDiagram layers={['wood','fiber','wood','core','wood','fiber','wood']}/><div className="cutLabel"><b>像玻璃夾層一樣看</b><span>每一片木材／纖維是沿著球板厚度堆疊，從正面其實不會看到這些條紋。</span></div></div>
-      <div><h3>纖維放在哪裡，比「有沒有碳」更重要</h3><p className="muted">內置纖維靠近芯材，通常保留較多木板持球感；外置纖維靠近表層，纖維更早介入，出球與甜區通常更直接。</p><div className="notice"><b>教練選擇順序：</b>學生動作完整度 → 整拍重量 → 球板結構／速度 → 正反手球皮。</div></div>
-    </div></section>
+    <section className="card"><div className="sectionTitle"><div><span>01</span><h2>球板結構：從正常球拍放大看「切面」</h2></div></div>
+      <RacketCutaway/>
+      <div className="cutawayExplain"><div><h3>正面看起來就是一整片</h3><p>真正不同的木材、碳纖維或複合纖維，都藏在球板厚度裡。教學時先用正常球拍定位，再把拍面局部放大成側面切面，比直接畫一疊木條更好理解。</p></div><div className="notice"><b>判斷重點：</b>內置纖維＝纖維靠近芯材；外置纖維＝纖維靠近表層。纖維距離表面的遠近，會改變出球直接感、持球感與甜區。</div></div>
+    </section>
 
-    <section className="card"><div className="sectionTitle"><div><span>02</span><h2>球板類型＋典型款式＋球星案例</h2></div><strong>{STRUCTURES.length} 類</strong></div>
+    <section className="card"><div className="sectionTitle"><div><span>02</span><h2>球板類型＋典型款式＋中／台／日球星案例</h2></div><strong>{STRUCTURES.length} 類</strong></div>
       <div className="structureLongList">{STRUCTURES.map(item=>{const custom=priceMap.get(item.key);const min=custom?.min_price ?? item.price[0];const max=custom?.max_price ?? item.price[1];return <article className="structureLongCard" key={item.key}>
         <div className="structureVisual"><StackDiagram compact layers={item.layers}/><span className="priceBadge">NT${min.toLocaleString()}～${max.toLocaleString()}</span></div>
         <div className="structureBody"><div className="structureTitle"><h3>{item.name}</h3><span>{item.tag}</span></div><p>{item.desc}</p><small><b>常見適合：</b>{item.fit}</small>
           <div className="modelBlock"><b>典型款式</b><div>{item.models.map(model=><span key={model}>{model}</span>)}</div></div>
-          <div className="starCase"><b>🏓 球星案例｜{item.star}</b><strong>{item.starBlade}</strong><p>{item.style}</p><div className="equipmentSourceLinks"><a href={item.source} target="_blank" rel="noreferrer">資料來源：{item.sourceLabel}</a></div></div>
+          <div className="starCaseGrid">{item.cases.map(player=><div className="starCase" key={`${item.key}-${player.name}`}><div className="countryPill">{player.country}</div><b>🏓 {player.name}</b><strong>{player.blade}</strong><p>{player.style}</p><div className="equipmentSourceLinks"><a href={player.source} target="_blank" rel="noreferrer">資料來源：{player.sourceLabel}</a></div></div>)}</div>
+          <GuidePriceEditor guideKind="blade" itemKey={item.key} label={`${item.name}參考價`} minPrice={min} maxPrice={max} returnTo="/blade-guide" canEdit={canEdit} customized={Boolean(custom)} note="價格會依品牌、型號與通路變動" />
         </div>
       </article>})}</div>
-      <p className="muted smallText" style={{marginTop:12}}>球星器材會因時期、贊助與客製設定改變；此處用官方／公開資料作為「結構與打法案例」，不把它當成固定不變的現役器材清單。</p>
+      <p className="muted smallText">球星器材會隨年份、贊助與個人客製改變；此區優先引用品牌官方資料，用來幫教練理解「結構如何對應打法」，不是要求學生照抄職業球員配置。</p>
     </section>
 
-    <section className="card"><div className="sectionTitle"><div><span>03</span><h2>球板參數怎麼理解？</h2></div></div><div className="parameterGrid">{PARAMETERS.map(([name,desc],index)=><div className="parameterCard" key={name}><div className="meter"><span style={{width:`${52+index*6}%`}} /></div><b>{name}</b><p>{desc}</p></div>)}</div><p className="muted smallText">長條僅作介面示意，不代表任何特定球板的量測結果。不同品牌的 OFF、ALL、速度分級也不是完全相同尺度。</p></section>
+    <section className="card"><div className="sectionTitle"><div><span>03</span><h2>球板參數怎麼理解？</h2></div><strong>不是評分表</strong></div>
+      <div className="parameterIntro"><b>看成「兩端特性」會比較直觀：</b>下面每張卡都不是進度條，也沒有代表某一支球板的分數；它只是告訴你這個參數的兩個方向，以及教練實際該觀察什麼。</div>
+      <div className="parameterExplainGrid">{PARAMETERS.map(item=><article className="parameterExplainCard" key={item.name}><div className="parameterHead"><span>{item.icon}</span><b>{item.name}</b></div><div className="traitAxis"><span>{item.left}</span><b>↔</b><span>{item.right}</span></div><p>{item.desc}</p></article>)}</div>
+    </section>
 
-    <section className="card"><div className="sectionTitle"><div><span>04</span><h2>握柄怎麼選？</h2></div><strong>FL 最主流</strong></div><div className="handleVisualGrid">{HANDLES.map(handle=><article key={handle.key}><HandlePicture kind={handle.key}/><div><span>{handle.tag}</span><h3>{handle.name}</h3><p>{handle.desc}</p></div></article>)}</div><div className="notice"><b>本隊目前使用：</b>系統現階段沒有紀錄每位學生的握柄型式，因此不直接猜測。若你確認全隊目前都是 FL／ST／AN，我下一步可以把「握柄」正式加進學生器材資料，直接顯示本隊統計。</div></section>
+    <section className="card"><div className="sectionTitle"><div><span>04</span><h2>不同階段怎麼挑？</h2></div></div>
+      <div className="choiceTable"><div className="choiceHead"><span>階段</span><span>優先考量</span><span>常見方向</span></div><div><b>剛入門</b><span>控制、重量、握柄大小</span><span>五夾純木／較慢全面型</span></div><div><b>培育階段</b><span>手感、主動發力、正反手銜接</span><span>五夾／七夾／溫和內置</span></div><div><b>競賽階段</b><span>打法、站位、前三板與中台能力</span><span>內置或外置纖維依需求配置</span></div><div><b>特殊打法</b><span>顆粒面任務、控制與反手穩定</span><span>先看特殊面需求，再決定板速與硬度</span></div></div>
+    </section>
 
-    <section className="card"><div className="sectionTitle"><div><span>05</span><h2>整拍重量要看「貼完兩面球皮後」</h2></div></div><div className="weightGrid">{WEIGHTS.map((item,index)=><article key={item.name}><WeightPicture index={index}/><span>{item.tag}</span><h3>{item.name}</h3><strong>{item.range}</strong><p>{item.desc}</p></article>)}</div><div className="notice"><b>兒童特別注意：</b>不要只追求重＝穩。太重會拖慢揮拍、正反手轉換與還原，長時間也更容易讓前臂疲勞。</div></section>
+    <section className="card"><div className="sectionTitle"><div><span>05</span><h2>握柄：直接看外形差異</h2></div></div><div className="handleVisualGrid">{HANDLES.map(handle=><article className="handleVisualCard" key={handle.key}><HandlePicture kind={handle.key}/><div><div className="structureTitle"><h3>{handle.name}</h3><span>{handle.tag}</span></div><p>{handle.desc}</p></div></article>)}</div><div className="notice"><b>目前市場主流：</b>FL 喇叭柄最常見；但球隊實際主要使用哪一種，請以下方「本隊主要握柄」設定為準。</div></section>
 
-    <section className="card"><div className="sectionTitle"><div><span>06</span><h2>球板參考價格</h2></div><strong>教練可修改</strong></div><p className="muted">以下先放寬鬆的台灣市場參考區間，實際售價會受品牌、系列、代理與匯率影響。同隊有器材權限的教練可直接更新。</p><div className="guidePriceList">{STRUCTURES.map(item=>{const custom=priceMap.get(item.key);return <GuidePriceEditor key={item.key} guideKind="blade" itemKey={item.key} label={item.name} minPrice={custom?.min_price ?? item.price[0]} maxPrice={custom?.max_price ?? item.price[1]} returnTo="/blade-guide" canEdit={canEdit} customized={Boolean(custom)} note={item.models.slice(0,2).join('、')}/>})}</div></section>
+    <section className="card"><div className="sectionTitle"><div><span>06</span><h2>整拍重量：看的是貼好兩面之後</h2></div></div><div className="weightGrid">{WEIGHTS.map((item,index)=><article className="weightCard" key={item.name}><WeightPicture index={index}/><strong>{item.range}</strong><b>{item.name}</b><span>{item.tag}</span><p>{item.desc}</p></article>)}</div><div className="notice"><b>實際秤重：</b>球板裸重只是其中一部分。球皮厚度、海綿密度、裁切尺寸與護邊都會改變整拍重量與頭重感。</div></section>
 
-    <style>{`.equipmentGuide h3{margin:0 0 8px}.diagramSplit{display:grid;grid-template-columns:minmax(320px,.95fr) 1.05fr;gap:24px;align-items:center}.explodedPanel{min-height:300px;border-radius:22px;padding:26px;background:linear-gradient(145deg,#eef7f3,#fff4f2);border:1px solid #dbe6e2;display:flex;align-items:center;justify-content:center;gap:28px}.glassStack{width:270px;display:flex;flex-direction:column;gap:8px;transform:rotate(-7deg);filter:drop-shadow(0 15px 16px rgba(77,52,28,.16))}.glassLayer{height:25px;border:1px solid rgba(81,55,31,.2);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:#5e4025;box-shadow:0 5px 12px rgba(0,0,0,.08)}.glassLayer.wood{background:linear-gradient(90deg,rgba(238,204,153,.93),rgba(210,156,91,.9))}.glassLayer.core{height:40px;background:linear-gradient(90deg,#d6a267,#bf8047)}.glassLayer.fiber{height:10px;background:linear-gradient(90deg,#202a31,#4b5b65);color:#fff}.glassStack.compact{width:160px;gap:4px;transform:rotate(-4deg)}.glassStack.compact .glassLayer{height:15px}.glassStack.compact .glassLayer.core{height:24px}.glassStack.compact .glassLayer.fiber{height:7px}.glassStack.compact .glassLayer span{display:none}.cutLabel{max-width:170px}.cutLabel b,.cutLabel span{display:block}.cutLabel span{font-size:12px;color:#667386;line-height:1.6;margin-top:7px}.structureLongList{display:flex;flex-direction:column;gap:14px}.structureLongCard{display:grid;grid-template-columns:210px minmax(0,1fr);gap:18px;padding:17px;border:1px solid #e1e6ec;border-radius:19px;background:#fff}.structureVisual{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;border-radius:16px;background:linear-gradient(145deg,#f4f8f6,#fff8f3);padding:16px}.structureTitle{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.structureTitle h3{font-size:20px}.structureTitle span,.handleVisualGrid article>div>span,.weightGrid article>span{font-size:11px;font-weight:900;border-radius:999px;padding:5px 8px;background:#eaf4f0;color:#315f52}.structureBody>p,.parameterCard p,.handleVisualGrid p,.weightGrid p{color:#667386;line-height:1.62}.structureBody>small{display:block;color:#647184}.modelBlock{margin-top:13px}.modelBlock>b{display:block;font-size:12px;color:#536174;margin-bottom:7px}.modelBlock>div{display:flex;gap:6px;flex-wrap:wrap}.modelBlock span{padding:7px 9px;border-radius:999px;background:#f1f4f7;font-size:12px;font-weight:800}.starCase{margin-top:13px;padding:13px;border-left:4px solid #0b6b56;border-radius:12px;background:#f4f9f7}.starCase>b,.starCase>strong{display:block}.starCase>strong{margin-top:5px}.starCase p{margin:7px 0 0;color:#5f6c7d;line-height:1.55}.parameterGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.parameterCard{padding:14px;border:1px solid #e1e6ec;border-radius:16px}.meter{height:7px;border-radius:999px;background:#edf1f4;overflow:hidden;margin-bottom:12px}.meter span{display:block;height:100%;background:linear-gradient(90deg,#c99b63,#0b5f4b);border-radius:999px}.handleVisualGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.handleVisualGrid article{border:1px solid #e1e6ec;border-radius:18px;padding:14px;background:#fff}.handlePicture{height:180px;position:relative;display:flex;justify-content:center;align-items:flex-start;background:radial-gradient(circle at 50% 40%,#f8efe4,#eef6f2);border-radius:14px;overflow:hidden;margin-bottom:12px}.ghostBlade{position:absolute;top:15px;width:108px;height:118px;border-radius:50% 50% 45% 45%;background:linear-gradient(135deg,#cf9b63,#edcf9d);border:4px solid #9a673e;box-shadow:0 8px 18px rgba(86,50,24,.18)}.realHandle{position:absolute;top:112px;height:60px;background:linear-gradient(90deg,#9f5d32,#e3ae73 45%,#a96335);border:3px solid #8a502e;box-shadow:0 6px 12px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;color:#5b321c;font-weight:900;font-size:11px}.realHandle.fl{width:47px;clip-path:polygon(18% 0,82% 0,100% 100%,0 100%)}.realHandle.st{width:38px;border-radius:5px}.realHandle.an{width:48px;clip-path:polygon(8% 0,92% 0,72% 48%,96% 100%,4% 100%,28% 48%)}.realHandle i{position:absolute;top:0;bottom:0;width:3px;background:rgba(255,255,255,.28)}.realHandle i:first-child{left:30%}.realHandle i:nth-child(2){right:30%}.weightGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}.weightGrid article{border:1px solid #e1e6ec;border-radius:18px;padding:14px;background:#fff}.weightGrid article>strong{display:block;font-size:22px;margin:8px 0}.weightPicture{height:150px;position:relative;border-radius:14px;background:linear-gradient(145deg,#f4f8f7,#fff5ee);overflow:hidden;margin-bottom:12px}.weightBlade{position:absolute;width:86px;height:92px;border-radius:50%;left:30px;top:22px;background:linear-gradient(135deg,#cf3c3c 0 49%,#1c1d20 51% 100%);border:4px solid #9e6c46;transform:rotate(-18deg)}.weightHandle{position:absolute;width:23px;height:61px;left:73px;top:96px;background:linear-gradient(90deg,#9f5d32,#e5b078,#a96335);border-radius:0 0 8px 8px;transform:rotate(-18deg);transform-origin:top}.scaleDial{position:absolute;right:24px;top:44px;width:74px;height:74px;border-radius:50%;background:#fff;border:7px solid #dfe5e8;box-shadow:0 8px 18px rgba(0,0,0,.10);display:flex;align-items:center;justify-content:center;flex-direction:column}.scaleDial span{font-size:22px;font-weight:900}.scaleDial small{color:#6b7789}.w0 .scaleDial{border-color:#97d8bf}.w1 .scaleDial{border-color:#8fb7df}.w2 .scaleDial{border-color:#e5aa93}@media(max-width:820px){.diagramSplit,.structureLongCard{grid-template-columns:1fr}.structureVisual{min-height:190px}.parameterGrid,.handleVisualGrid,.weightGrid{grid-template-columns:1fr 1fr}.explodedPanel{min-height:250px}}@media(max-width:560px){.parameterGrid,.handleVisualGrid,.weightGrid{grid-template-columns:1fr}.explodedPanel{flex-direction:column}.glassStack{width:220px}.cutLabel{max-width:none;text-align:center}.structureLongCard{padding:12px}}`}</style>
+    <style>{`.bladeGuideV3 h3{margin:0}.racketCutaway{display:grid;grid-template-columns:260px 100px minmax(300px,1fr);gap:20px;align-items:center;padding:24px;border:1px solid #dfe7e4;border-radius:22px;background:linear-gradient(145deg,#f1f8f5,#fff7f2)}.racketNormal{display:flex;flex-direction:column;align-items:center}.racketFace{width:180px;height:180px;border-radius:50%;background:radial-gradient(circle at 38% 32%,#d94b4b,#a51f29 72%);border:7px solid #9b673d;box-shadow:0 12px 26px rgba(37,47,58,.16);position:relative}.racketHandleMain{width:46px;height:105px;margin-top:-7px;border-radius:0 0 19px 19px;background:linear-gradient(90deg,#a96739,#e0ad75,#985c31);border:4px solid #87542f}.cutSquare{position:absolute;width:54px;height:54px;right:18px;top:48px;border:3px solid #fff;background:rgba(255,255,255,.1);box-shadow:0 0 0 2px rgba(16,92,73,.55)}.cutSquare span{position:absolute;left:50%;top:-26px;transform:translateX(-50%);white-space:nowrap;color:#fff;background:#0b5f4b;padding:3px 7px;border-radius:8px;font-size:11px;font-weight:900}.racketNormal small,.cutawayZoom small{margin-top:9px;color:#687588;font-weight:800}.zoomArrow{text-align:center;color:#0b5f4b}.zoomArrow span{display:block;font-size:12px;font-weight:900}.zoomArrow b{font-size:42px}.cutawayZoom{display:flex;flex-direction:column;align-items:center;padding:20px;border-radius:18px;background:#fff;border:1px dashed #aac8be}.glassStack{width:min(340px,100%);display:flex;flex-direction:column;gap:7px;align-items:center}.glassStack.compact{width:150px;gap:4px}.glassLayer{width:92%;height:26px;border-radius:6px;border:1px solid rgba(92,67,42,.18);box-shadow:0 6px 12px rgba(36,43,50,.08);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;color:#51361e}.glassStack.compact .glassLayer{height:15px;font-size:9px}.glassLayer.wood{background:linear-gradient(90deg,#efc789,#d8a566)}.glassLayer.core{height:42px;background:#c98e51}.glassLayer.fiber{height:10px;background:linear-gradient(90deg,#20272c,#526168);color:#fff}.glassStack.compact .glassLayer.core{height:24px}.glassStack.compact .glassLayer.fiber{height:7px}.cutawayExplain{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.cutawayExplain p{color:#657386;line-height:1.65}.structureLongList{display:grid;gap:14px}.structureLongCard{display:grid;grid-template-columns:190px 1fr;gap:18px;border:1px solid #e1e6ec;border-radius:20px;padding:17px;background:#fff}.structureVisual{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:16px;border-radius:16px;background:linear-gradient(145deg,#f0f6f3,#fff7f0)}.priceBadge{margin-top:17px;background:#173f4a;color:#fff;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}.structureTitle{display:flex;align-items:center;gap:8px}.structureTitle span,.countryPill{font-size:11px;font-weight:900;border-radius:999px;padding:5px 8px;background:#eaf4ef;color:#276250}.structureBody>p,.starCase p,.parameterExplainCard p,.handleVisualCard p,.weightCard p{color:#657386;line-height:1.62}.structureBody small{color:#657386}.modelBlock{margin:13px 0}.modelBlock>b{display:block;margin-bottom:7px}.modelBlock div{display:flex;gap:6px;flex-wrap:wrap}.modelBlock span{background:#f3f6f8;border-radius:999px;padding:6px 9px;font-size:12px;font-weight:800;color:#465365}.starCaseGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.starCase{border:1px solid #dae6e2;background:#f8fbfa;border-radius:14px;padding:12px}.starCase>strong{display:block;margin-top:5px;color:#162e44}.countryPill{display:inline-block;margin-bottom:7px}.equipmentSourceLinks a{font-size:12px;color:#17695b;font-weight:800}.parameterIntro{padding:13px 15px;border-radius:14px;background:#edf7f3;color:#425b54;line-height:1.6;margin-bottom:12px}.parameterExplainGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.parameterExplainCard{padding:15px;border:1px solid #e1e6ec;border-radius:17px;background:#fff}.parameterHead{display:flex;gap:9px;align-items:center}.parameterHead>span{font-size:22px}.parameterHead b{font-size:16px}.traitAxis{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin:13px 0 8px;padding:9px 10px;border-radius:12px;background:linear-gradient(90deg,#f5eadc,#eef7f3)}.traitAxis span:first-child{text-align:left}.traitAxis span:last-child{text-align:right}.traitAxis span{font-size:12px;font-weight:900;color:#526274}.traitAxis b{color:#0b5f4b;font-size:20px}.choiceTable{border:1px solid #e1e6ec;border-radius:16px;overflow:hidden}.choiceTable>div{display:grid;grid-template-columns:.7fr 1.2fr 1.3fr;gap:10px;padding:12px 14px;border-top:1px solid #edf0f3;align-items:center}.choiceTable>div:first-child{border-top:0}.choiceHead{background:#f4f7f6;font-size:12px;font-weight:900;color:#637285}.handleVisualGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}.handleVisualCard{border:1px solid #e1e6ec;border-radius:18px;padding:15px;background:#fff}.handlePicture{height:205px;position:relative;display:flex;justify-content:center;align-items:flex-start;background:linear-gradient(145deg,#edf6f2,#fff4ee);border-radius:15px;overflow:hidden;margin-bottom:12px}.ghostBlade{width:116px;height:116px;border-radius:50%;margin-top:16px;background:radial-gradient(circle at 35% 30%,#df4b50,#9d1e2d);border:5px solid #9b673d;box-shadow:0 8px 18px rgba(0,0,0,.15)}.realHandle{position:absolute;top:119px;width:38px;height:78px;background:linear-gradient(90deg,#9f6539,#e2b17b,#97592e);border:3px solid #88512d;display:flex;align-items:center;justify-content:center}.realHandle span{font-size:10px;font-weight:900;color:#56341e}.realHandle.fl{width:35px;border-radius:6px 6px 14px 14px;clip-path:polygon(20% 0,80% 0,100% 100%,0 100%)}.realHandle.st{border-radius:5px}.realHandle.an{border-radius:8px 8px 14px 14px;clip-path:polygon(15% 0,85% 0,72% 45%,100% 100%,0 100%,28% 45%)}.realHandle i{display:none}.weightGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}.weightCard{border:1px solid #e1e6ec;border-radius:18px;padding:15px;background:#fff;text-align:center}.weightCard strong{display:block;font-size:22px;color:#143f52;margin-top:7px}.weightCard b{display:block;margin-top:5px}.weightCard>span{display:inline-block;margin-top:7px;border-radius:999px;padding:5px 8px;background:#edf5f2;color:#356657;font-size:11px;font-weight:900}.weightPicture{height:170px;position:relative;border-radius:15px;background:linear-gradient(145deg,#edf6f2,#fff5ed);overflow:hidden}.weightBlade{position:absolute;width:90px;height:90px;border-radius:50%;left:calc(50% - 70px);top:25px;background:linear-gradient(90deg,#d9383f 50%,#181a1d 50%);border:5px solid #9a673f;transform:rotate(-12deg)}.weightHandle{position:absolute;width:27px;height:62px;left:calc(50% - 17px);top:101px;background:#b77542;border:3px solid #8b5731;border-radius:0 0 10px 10px;transform:rotate(-12deg)}.scaleDial{position:absolute;right:19px;bottom:25px;width:72px;height:72px;border-radius:50%;background:#fff;border:7px solid #dce6e2;box-shadow:0 8px 16px rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center}.scaleDial span{font-size:19px;font-weight:900;color:#173f4a}.scaleDial small{font-weight:900;color:#738092;margin-left:2px}@media(max-width:780px){.racketCutaway{grid-template-columns:1fr}.zoomArrow b{display:block;transform:rotate(90deg)}.cutawayExplain,.starCaseGrid,.parameterExplainGrid,.handleVisualGrid,.weightGrid{grid-template-columns:1fr}.structureLongCard{grid-template-columns:1fr}.choiceTable>div{grid-template-columns:1fr}.choiceHead{display:none!important}.structureVisual{min-height:180px}}`}</style>
   </main>;
 }
