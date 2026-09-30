@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description: "教練訓練規劃、技能成長與紀錄系統"
 };
 
-const VALID_THEMES = new Set(["current", "clean", "teaching", "competitive", "sunset", "berry", "pingpong", "equipment"]);
+const VALID_THEMES = new Set(["current", "clean", "teaching", "competitive", "sunset", "berry", "pingpong", "equipment", "candy", "neon"]);
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   let theme = "current";
