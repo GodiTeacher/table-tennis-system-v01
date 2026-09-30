@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./app-shell.css";
 import "./themes.css";
+import "./equipment-guide.css";
 import AppBottomNav from "@/components/AppBottomNav";
 import { createClient } from "@/lib/supabase/server";
 
