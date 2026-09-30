@@ -33,9 +33,9 @@ function RankingTable({title,rows}:{title:string;rows:readonly typeof MEN[number
   </div>;
 }
 
-export default function WorldTop10Equipment(){
+export default function WorldTop10Equipment({sectionNumber='08'}:{sectionNumber?:string}){
   return <section className="shell" style={{paddingTop:0}}><section className="card worldEquipmentSection">
-    <div className="sectionTitle"><div><span>08</span><h2>世界排名前 10 選手器材</h2></div><strong>2026 Week 40</strong></div>
+    <div className="sectionTitle"><div><span>{sectionNumber}</span><h2>世界排名前 10 選手器材</h2></div><strong>2026 Week 40</strong></div>
     <div className="notice"><b>排名基準：</b>2026/09/29 公布的 ITTF Week 40 單打排名。器材來自公開品牌資料與 Tabletennis Reference；職業選手器材可能因贊助、版本、客製化或時間而改變。查不到可靠公開資料時會明確標示「尚未確認」，不以推測補齊。</div>
     <RankingTable title="男子世界前 10" rows={MEN}/><RankingTable title="女子世界前 10" rows={WOMEN}/>
     <div className="worldEquipmentSources"><a href="https://www.ittf.com/ittf-table-tennis-world-ranking/" target="_blank" rel="noreferrer">ITTF 世界排名</a><a href="https://tabletennis-reference.com/player/world_ranking" target="_blank" rel="noreferrer">器材／排名交叉查詢</a></div>
