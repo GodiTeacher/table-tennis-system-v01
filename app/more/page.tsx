@@ -6,11 +6,11 @@ const MODULES = [
   { title: '自訂訓練項目', desc: '在系統預設技能之外，建立隊伍自己的訓練項目並設定適用 A～F 程度。', status: '已可使用', href: '/training-items' },
   { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V2 已可使用', href: '/rubber-catalog' },
   { title: '球皮庫存異動', desc: '記錄入庫、出庫、盤點與比賽領用；比賽已黏貼後自動扣庫存並保留學生歷史用皮。', status: 'V2 已可使用', href: '/rubber-inventory' },
-  { title: '球皮介紹', desc: '球皮類型、剖面、速度／旋轉／控制／硬度與不同程度選擇方向。', status: '已可使用', href: '/rubber-guide' },
+  { title: '球皮介紹', desc: '球皮類型、剖面、速度／旋轉／控制／硬度、不同程度選擇方向與世界前 10 選手器材。', status: '已可使用', href: '/rubber-guide' },
   { title: '球板介紹', desc: '五夾、七夾、內置／外置纖維、握柄、整拍重量、球星案例與世界前 10 器材。', status: '已可使用', href: '/blade-guide' },
   { title: '球皮／球板代工規則', desc: '代訂免費黏貼／裁切、自購代工費用、護邊與注意事項，並可複製家長公告。', status: '已可使用', href: '/service-rules' },
   { title: '桌球職涯介紹', desc: '從國小校隊、競賽、升學到選手、教練、裁判、運動科學與桌球產業的發展路線。', status: 'V1 已可使用', href: '/career-guide' },
-  { title: '隊規', desc: '集中管理球隊規範、訓練要求與家長須知。', status: '規劃中' },
+  { title: '球隊規範', desc: '集中管理隊員基本規範、外出比賽、收費退費及後續其他球隊管理規章。', status: 'V1 已可使用', href: '/team-standards' },
   { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、家長／教練接送、座位與每位學生車資。', status: 'V2 已可使用', href: '/competitions' },
   { title: '比賽球皮管理', desc: '直接綁定參賽名單，快速配置正反手球皮並彙整需求、庫存、訂貨與付款進度。', status: 'V2 已可使用', href: '/competition-rubbers' },
 ];
@@ -63,7 +63,7 @@ export default async function MorePage() {
 
       <section className="card">
         <div className="sectionTitle"><div><span>03</span><h2>開發順序</h2></div></div>
-        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫／庫存、球皮與球板教學、世界前 10 器材、代工規則與桌球職涯 V1 都已有可用版本；接下來可繼續完善隊規與器材型號資料。</div>
+        <div className="notice"><b>目前進度：</b>核心訓練、學生、能力評量、比賽接送、球皮資料庫／庫存、球皮與球板教學、世界前 10 器材、代工規則、桌球職涯 V1 與球隊規範 V1 都已有可用版本。</div>
       </section>
     </main>
   );
