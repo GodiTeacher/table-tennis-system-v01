@@ -16,7 +16,11 @@ const enc=(s:string)=>encodeURIComponent(s);
 const weekdayFor=(date:string)=>((new Date(`${date}T12:00:00`).getDay()+6)%7)+1;
 const monthBounds=(month:string)=>{const y=Number(month.slice(0,4)),m=Number(month.slice(5,7));const start=`${month}-01`;const d=new Date(y,m,1);const next=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;return {start,next,y,m};};
 
-function templatePayload(formData:FormData){
+type TemplatePayloadResult =
+  | { error: string }
+  | { data: { weekday:number; mode:string; grade:number|null; student_id:string|null; start_time:string; end_time:string; default_count:number|null; note:string|null } };
+
+function templatePayload(formData:FormData):TemplatePayloadResult{
   const mode=String(formData.get('mode')??'grade');
   const weekday=Number(formData.get('weekday')??0);
   const gradeRaw=String(formData.get('grade')??'');
@@ -27,15 +31,15 @@ function templatePayload(formData:FormData){
   const note=String(formData.get('note')??'').trim()||null;
   const grade=gradeRaw?Number(gradeRaw):null;
   const defaultCount=countRaw===''?null:Number(countRaw);
-  if(!weekday||weekday<1||weekday>7||!start||!end||end<=start) return {error:'請確認星期與出席時間。'} as const;
-  if(mode==='grade'&&(!grade||defaultCount===null||!Number.isFinite(defaultCount))) return {error:'年級模式請填年級與預設人數。'} as const;
-  if(mode==='individual'&&!studentId) return {error:'個人模式請選學生。'} as const;
-  return {data:{weekday,mode,grade:mode==='grade'?grade:null,student_id:mode==='individual'?studentId:null,start_time:start,end_time:end,default_count:mode==='grade'?defaultCount:null,note}} as const;
+  if(!weekday||weekday<1||weekday>7||!start||!end||end<=start) return {error:'請確認星期與出席時間。'};
+  if(mode==='grade'&&(!grade||defaultCount===null||!Number.isFinite(defaultCount))) return {error:'年級模式請填年級與預設人數。'};
+  if(mode==='individual'&&!studentId) return {error:'個人模式請選學生。'};
+  return {data:{weekday,mode,grade:mode==='grade'?grade:null,student_id:mode==='individual'?studentId:null,start_time:start,end_time:end,default_count:mode==='grade'?defaultCount:null,note}};
 }
 
 export async function addAttendanceTemplate(formData:FormData){
   const {supabase,userId,teamId}=await ctx(); const parsed=templatePayload(formData);
-  if('error'in parsed) redirect('/attendance-settings?error='+enc(parsed.error));
+  if('error' in parsed) redirect('/attendance-settings?error='+enc(parsed.error));
   const {error}=await supabase.from('attendance_templates').insert({team_id:teamId,...parsed.data,created_by:userId});
   if(error) redirect('/attendance-settings?error='+enc(error.message));
   redirect('/attendance-settings?message='+enc('固定出席模板已新增。'));
@@ -44,7 +48,7 @@ export async function addAttendanceTemplate(formData:FormData){
 export async function updateAttendanceTemplate(formData:FormData){
   const {supabase,teamId}=await ctx(); const id=String(formData.get('id')??''); const parsed=templatePayload(formData);
   if(!id)redirect('/attendance-settings?error='+enc('缺少模板編號。'));
-  if('error'in parsed) redirect('/attendance-settings?error='+enc(parsed.error));
+  if('error' in parsed) redirect('/attendance-settings?error='+enc(parsed.error));
   const {error}=await supabase.from('attendance_templates').update({...parsed.data,updated_at:new Date().toISOString()}).eq('id',id).eq('team_id',teamId);
   if(error)redirect('/attendance-settings?error='+enc(error.message));
   redirect('/attendance-settings?message='+enc('固定模板已更新。'));
