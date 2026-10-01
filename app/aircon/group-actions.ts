@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 const enc=(s:string)=>encodeURIComponent(s);
 const monthDate=(m:string)=>`${m.slice(0,7)}-01`;
 const bounds=(month:string)=>{const y=Number(month.slice(0,4)),m=Number(month.slice(5,7));const d=new Date(y,m,1);return {start:`${month}-01`,next:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`};};
+const previousMonth=(month:string)=>{const y=Number(month.slice(0,4)),m=Number(month.slice(5,7));const d=new Date(y,m-2,1);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;};
 async function context(){const supabase=await createClient();const {data:claims}=await supabase.auth.getClaims();if(!claims?.claims?.sub)redirect('/login');const {data:teamId,error}=await supabase.rpc('current_team_id');if(error||!teamId)redirect('/more');return {supabase,teamId};}
 
 export async function saveAirconFeeGroups(formData:FormData){
@@ -20,6 +21,17 @@ export async function saveAirconFeeGroups(formData:FormData){
   redirect(`/aircon?month=${month}&message=${enc('本月月費群組設定已儲存。')}#fee-groups`);
 }
 
+export async function copyPreviousAirconFeeGroups(formData:FormData){
+  const {supabase,teamId}=await context();const month=String(formData.get('month')??'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(month))redirect('/aircon?error='+enc('請先選擇月份。'));
+  const prev=previousMonth(month);
+  const {data:rows,error}=await supabase.from('aircon_fee_group_months').select('group_id,monthly_fee,member_count').eq('team_id',teamId).eq('record_month',monthDate(prev));
+  if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}#fee-groups`);
+  if(!(rows??[]).length)redirect(`/aircon?month=${month}&error=${enc(`${prev} 沒有可沿用的月費群組設定。`)}#fee-groups`);
+  const payload=(rows??[]).map(r=>({team_id:teamId,group_id:r.group_id,record_month:monthDate(month),monthly_fee:r.monthly_fee,member_count:r.member_count,updated_at:new Date().toISOString()}));
+  const {error:upError}=await supabase.from('aircon_fee_group_months').upsert(payload,{onConflict:'group_id,record_month'});if(upError)redirect(`/aircon?month=${month}&error=${enc(upError.message)}#fee-groups`);
+  redirect(`/aircon?month=${month}&message=${enc(`已沿用 ${prev} 的月費與收費人數，可再微調。`)}#fee-groups`);
+}
+
 export async function addAirconFeeGroup(formData:FormData){
   const {supabase,teamId}=await context();const month=String(formData.get('month')??'').slice(0,7);const {data:last}=await supabase.from('aircon_fee_groups').select('sort_order').eq('team_id',teamId).order('sort_order',{ascending:false}).limit(1).maybeSingle();const next=Math.min(32000,Number(last?.sort_order??0)+1);
   const {error}=await supabase.from('aircon_fee_groups').insert({team_id:teamId,name:`月費群組 ${next}`,default_monthly_fee:0,sort_order:next,active:true});if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);redirect(`/aircon?month=${month}&message=${enc('已新增一個月費群組。')}#fee-groups`);
@@ -32,13 +44,23 @@ export async function archiveAirconFeeGroup(formData:FormData){
 export async function saveAirconGroupAttendance(formData:FormData){
   const {supabase,teamId}=await context();const month=String(formData.get('month')??'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(month))redirect('/aircon?error='+enc('請先選擇月份。'));const {start,next}=bounds(month);
   const [{data:segments,error:sError},{data:groups,error:gError}]=await Promise.all([
-    supabase.from('daily_attendance_segments').select('id,attendee_count').eq('team_id',teamId).eq('mode','count').gte('attendance_date',start).lt('attendance_date',next),
+    supabase.from('daily_attendance_segments').select('id,attendance_date,start_time,end_time,attendee_count').eq('team_id',teamId).eq('mode','count').gte('attendance_date',start).lt('attendance_date',next),
     supabase.from('aircon_fee_groups').select('id').eq('team_id',teamId).eq('active',true),
   ]);
   if(sError||gError)redirect(`/aircon?month=${month}&error=${enc(sError?.message||gError?.message||'讀取資料失敗')}`);
   const rows:any[]=[];let incomplete=0;
   for(const s of segments??[]){let sum=0;for(const g of groups??[]){const raw=String(formData.get(`g_${s.id}_${g.id}`)??'0');const count=Number(raw);if(!Number.isInteger(count)||count<0)redirect(`/aircon?month=${month}&error=${enc('群組出勤人數只能填 0 或正整數。')}#group-attendance`);sum+=count;rows.push({team_id:teamId,attendance_segment_id:s.id,group_id:g.id,attendee_count:count,updated_at:new Date().toISOString()});}const total=Number(s.attendee_count??0);if(sum>total)redirect(`/aircon?month=${month}&error=${enc('有時段的群組人數合計超過該時段總出勤人數，請修正後再儲存。')}#group-attendance`);if(sum!==total)incomplete++;}
   if(rows.length){const {error}=await supabase.from('aircon_fee_group_attendance').upsert(rows,{onConflict:'attendance_segment_id,group_id'});if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}#group-attendance`);}
-  const msg=incomplete===0?'群組出勤人數已儲存，所有時段都已完整分組。':`群組出勤人數已儲存；尚有 ${incomplete} 個時段的人數未完全分組。`;
+
+  for(const g of groups??[]){
+    const count=Number(formData.get(`module_count_${g.id}`)??0);const raw=String(formData.get(`module_patterns_${g.id}`)??'[]');let patterns:any[]=[];try{patterns=JSON.parse(raw);}catch{patterns=[];}
+    if(Array.isArray(patterns)){
+      await supabase.from('aircon_fee_group_patterns').delete().eq('team_id',teamId).eq('group_id',g.id);
+      const patternRows=patterns.filter(p=>p&&Number(p.weekday)>=1&&Number(p.weekday)<=7&&p.start&&p.end).map(p=>({team_id:teamId,group_id:g.id,weekday:Number(p.weekday),start_time:String(p.start),end_time:String(p.end),default_count:Math.max(0,Math.floor(count)),updated_at:new Date().toISOString()}));
+      if(patternRows.length){const {error:pError}=await supabase.from('aircon_fee_group_patterns').insert(patternRows);if(pError)redirect(`/aircon?month=${month}&error=${enc(pError.message)}#group-attendance`);}
+    }
+  }
+
+  const msg=incomplete===0?'群組出勤人數已儲存，所有時段都已完整分組。':`群組出勤人數已儲存；尚有 ${incomplete} 個時段未完全分組，可在結果區選擇「允許未分類」繼續計算。`;
   redirect(`/aircon?month=${month}&message=${enc(msg)}#group-attendance`);
 }
