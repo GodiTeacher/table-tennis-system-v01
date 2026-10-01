@@ -1,10 +1,17 @@
+function isMobileDevice() {
+  const ua = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const touch = navigator.maxTouchPoints || 0;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (platform === 'MacIntel' && touch > 1);
+}
+
 export async function saveOrShareBlob(blob: Blob, filename: string, title?: string) {
   const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
   const nav = navigator as Navigator & {
     canShare?: (data: ShareData) => boolean;
   };
 
-  if (typeof nav.share === 'function') {
+  if (isMobileDevice() && typeof nav.share === 'function') {
     const shareData: ShareData = { files: [file], title: title ?? filename };
     const canShareFiles = typeof nav.canShare !== 'function' || nav.canShare(shareData);
     if (canShareFiles) {
