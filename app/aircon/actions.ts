@@ -45,15 +45,22 @@ export async function importAirconRunsFromGrade(formData:FormData){
   const {supabase,userId,teamId}=await context(); const month=String(formData.get('month')??'').slice(0,7); const grade=Number(formData.get('grade')??0);
   if(!/^\d{4}-\d{2}$/.test(month)||grade<1||grade>6)redirect(`/aircon?month=${month}&error=${enc('請選擇月份與年級。')}`);
   const {start,next}=bounds(month);
-  const [{data:attendance},{data:meter}]=await Promise.all([
-    supabase.from('daily_attendance_segments').select('attendance_date,start_time,end_time').eq('team_id',teamId).eq('mode','grade').eq('grade',grade).gte('attendance_date',start).lt('attendance_date',next).order('attendance_date').order('start_time'),
+  const [{data:students},{data:attendance},{data:meter}]=await Promise.all([
+    supabase.from('students').select('id').eq('team_id',teamId).eq('grade',grade).eq('active',true),
+    supabase.from('daily_attendance_segments').select('attendance_date,mode,grade,student_id,start_time,end_time').eq('team_id',teamId).gte('attendance_date',start).lt('attendance_date',next).order('attendance_date').order('start_time'),
     supabase.from('aircon_meter_records').select('id').eq('team_id',teamId).eq('record_month',start).maybeSingle(),
   ]);
+  const studentIds=new Set((students??[]).map(s=>s.id));
   await supabase.from('aircon_runs').delete().eq('team_id',teamId).gte('usage_date',start).lt('usage_date',next).eq('source','attendance_grade').eq('source_grade',grade);
   const seen=new Set<string>(); const rows:any[]=[];
-  for(const a of attendance??[]){const key=`${a.attendance_date}|${a.start_time}|${a.end_time}`;if(seen.has(key))continue;seen.add(key);rows.push({team_id:teamId,meter_record_id:meter?.id??null,usage_date:a.attendance_date,start_time:a.start_time,end_time:a.end_time,note:`依 ${grade} 年級出席時間帶入`,source:'attendance_grade',source_grade:grade,created_by:userId});}
+  for(const a of attendance??[]){
+    const belongs=a.mode==='grade'?Number(a.grade)===grade:!!a.student_id&&studentIds.has(a.student_id);
+    if(!belongs)continue;
+    const key=`${a.attendance_date}|${a.start_time}|${a.end_time}`; if(seen.has(key))continue; seen.add(key);
+    rows.push({team_id:teamId,meter_record_id:meter?.id??null,usage_date:a.attendance_date,start_time:a.start_time,end_time:a.end_time,note:a.mode==='individual'?`依 ${grade} 年級例外學生時段帶入`:`依 ${grade} 年級主要時段帶入`,source:'attendance_grade',source_grade:grade,created_by:userId});
+  }
   if(rows.length){const {error}=await supabase.from('aircon_runs').insert(rows);if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);}
-  redirect(`/aircon?month=${month}&message=${enc(`已依 ${grade} 年級整月出席時間帶入 ${rows.length} 段冷氣時間，可再逐日修改。`)}`);
+  redirect(`/aircon?month=${month}&message=${enc(`已依 ${grade} 年級主要時段＋例外學生帶入 ${rows.length} 段冷氣時間，可再逐日修改。`)}`);
 }
 
 export async function deleteAirconRun(formData:FormData){
