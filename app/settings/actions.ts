@@ -1,6 +1,6 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 
@@ -17,6 +17,13 @@ export async function setTheme(formData: FormData) {
   const { error } = await supabase.rpc('set_my_theme', { target_theme: theme });
   if (error) redirect('/settings?error=' + encodeURIComponent(error.message));
 
-  revalidatePath('/', 'layout');
+  const cookieStore = await cookies();
+  cookieStore.set('ui-theme', theme, {
+    path: '/',
+    maxAge: 60 * 60 * 24 * 365,
+    sameSite: 'lax',
+    httpOnly: false,
+    secure: true,
+  });
   redirect('/settings?message=' + encodeURIComponent('介面主題已更新。'));
 }
