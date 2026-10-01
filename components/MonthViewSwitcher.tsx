@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function MonthViewSwitcher({label}:{label:string}){
@@ -8,6 +9,18 @@ export default function MonthViewSwitcher({label}:{label:string}){
   const now=new Date();
   const fallback=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   const month=searchParams.get('month')||fallback;
+
+  useEffect(()=>{
+    const monthParam=searchParams.get('month');
+    const dateParam=searchParams.get('date');
+    if(monthParam&&(!dateParam||dateParam.slice(0,7)!==monthParam)){
+      const p=new URLSearchParams(searchParams.toString());
+      p.set('date',`${monthParam}-01`);
+      p.delete('message');p.delete('error');p.delete('calculate');p.delete('allocate');
+      window.location.replace(`${pathname}?${p.toString()}`);
+    }
+  },[month,pathname,searchParams]);
+
   const change=(value:string)=>{
     if(!value)return;
     const p=new URLSearchParams(searchParams.toString());
