@@ -27,5 +27,24 @@ export async function importAirconRunsFromAttendance(formData:FormData){
   redirect(`/aircon?month=${month}&message=${enc(`已從整月學生出勤帶入 ${rows.length} 段冷氣時間；相連時段已自動合併。`)}`);
 }
 
-export async function deleteAirconRun(formData:FormData){const {supabase,teamId}=await context();const id=String(formData.get('id')??''),month=String(formData.get('month')??'');await supabase.from('aircon_runs').delete().eq('id',id).eq('team_id',teamId);redirect(`/aircon${month?`?month=${month}`:''}`);}
+export async function deleteAirconRun(formData:FormData){
+  const {supabase,teamId}=await context();
+  const id=String(formData.get('id')??'').trim();
+  const month=String(formData.get('month')??'').slice(0,7);
+  if(!id)redirect(`/aircon${month?`?month=${month}&error=${enc('缺少要刪除的冷氣時段編號。')}`:`?error=${enc('缺少要刪除的冷氣時段編號。')}`}`);
+  const {error}=await supabase.from('aircon_runs').delete().eq('id',id).eq('team_id',teamId);
+  if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);
+  redirect(`/aircon?month=${month}&message=${enc('冷氣時段已刪除。')}`);
+}
+
+export async function deleteAllAirconRunsForMonth(formData:FormData){
+  const {supabase,teamId}=await context();
+  const month=String(formData.get('month')??'').slice(0,7);
+  if(!/^\d{4}-\d{2}$/.test(month))redirect(`/aircon?error=${enc('請先選擇要清除的月份。')}`);
+  const {start,next}=bounds(month);
+  const {error}=await supabase.from('aircon_runs').delete().eq('team_id',teamId).gte('usage_date',start).lt('usage_date',next);
+  if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);
+  redirect(`/aircon?month=${month}&message=${enc(`${month} 的冷氣時段已全部刪除。`)}`);
+}
+
 export async function deleteMeterRecord(formData:FormData){const {supabase,teamId}=await context();const id=String(formData.get('id')??''),month=String(formData.get('month')??'');const {error}=await supabase.from('aircon_meter_records').delete().eq('id',id).eq('team_id',teamId);if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);redirect(`/aircon?month=${month}&message=${enc('月份電表紀錄已刪除。')}`);}
