@@ -12,7 +12,7 @@ async function ctx(){
   if(!teamId) redirect('/more');
   return {supabase,userId,teamId};
 }
-const enc=(s:string)=>encodeURIComponent(s);
+const enc=(s:string|undefined|null)=>encodeURIComponent(s??'');
 const weekdayFor=(date:string)=>((new Date(`${date}T12:00:00`).getDay()+6)%7)+1;
 const monthBounds=(month:string)=>{const y=Number(month.slice(0,4)),m=Number(month.slice(5,7));const start=`${month}-01`;const d=new Date(y,m,1);const next=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;return {start,next,y,m};};
 type CountTemplate={id:string;weekday:number;start_time:string;end_time:string;default_count:number|null;note:string|null};
