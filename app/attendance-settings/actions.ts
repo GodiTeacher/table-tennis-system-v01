@@ -18,12 +18,12 @@ const monthBounds=(month:string)=>{const y=Number(month.slice(0,4)),m=Number(mon
 type CountTemplate={id:string;weekday:number;start_time:string;end_time:string;default_count:number|null;note:string|null};
 type DateOverride={attendance_date:string;action:'remove'|'include';template_weekday:number|null;note:string|null};
 
-function countTemplatePayload(formData:FormData){
-  const weekday=Number(formData.get('weekday')??0);
-  const start=String(formData.get('start_time')??'');
-  const end=String(formData.get('end_time')??'');
-  const count=Number(formData.get('default_count')??NaN);
-  const note=String(formData.get('note')??'').trim()||null;
+function countTemplatePayload(formData:FormData,prefix=''){
+  const weekday=Number(formData.get(`${prefix}weekday`)??0);
+  const start=String(formData.get(`${prefix}start_time`)??'');
+  const end=String(formData.get(`${prefix}end_time`)??'');
+  const count=Number(formData.get(`${prefix}default_count`)??NaN);
+  const note=String(formData.get(`${prefix}note`)??'').trim()||null;
   if(weekday<1||weekday>5||!start||!end||end<=start||!Number.isFinite(count)||count<0)return {error:'請確認星期一至星期五、時段與出勤人數。'} as const;
   return {data:{weekday,mode:'count',grade:null,student_id:null,start_time:start,end_time:end,default_count:count,note}} as const;
 }
@@ -51,6 +51,19 @@ export async function updateAttendanceTemplate(formData:FormData){
   const {error}=await supabase.from('attendance_templates').update({...parsed.data,updated_at:new Date().toISOString()}).eq('id',id).eq('team_id',teamId).eq('mode','count');
   if(error)redirect('/attendance-settings?error='+enc(error.message));
   redirect('/attendance-settings?message='+enc('固定出勤時段已更新。'));
+}
+
+export async function saveAttendanceTemplatesBulk(formData:FormData){
+  const {supabase,teamId}=await ctx();
+  const ids=formData.getAll('template_id').map(String).filter(Boolean);
+  if(!ids.length)redirect('/attendance-settings?error='+enc('目前沒有可儲存的固定出勤模板。'));
+  for(const id of ids){
+    const parsed=countTemplatePayload(formData,`${id}_`);
+    if('error' in parsed)redirect('/attendance-settings?error='+enc(`有模板資料不完整：${parsed.error}`));
+    const {error}=await supabase.from('attendance_templates').update({...parsed.data,updated_at:new Date().toISOString()}).eq('id',id).eq('team_id',teamId).eq('mode','count');
+    if(error)redirect('/attendance-settings?error='+enc(error.message));
+  }
+  redirect('/attendance-settings?message='+enc(`固定每週出勤模板已一次儲存 ${ids.length} 筆。`));
 }
 
 export async function duplicateAttendanceTemplate(formData:FormData){
