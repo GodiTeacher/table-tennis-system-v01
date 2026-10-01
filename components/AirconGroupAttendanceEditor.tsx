@@ -1,21 +1,22 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 type Segment={id:string;date:string;start:string;end:string;total:number};
 type Group={id:string;name:string};
 type Props={month:string;segments:Segment[];groups:Group[];initial:Record<string,number>;saveAction:(formData:FormData)=>void|Promise<void>};
 type Pattern={key:string;weekday:number;start:string;end:string;usualTotal:number;count:number};
+type SavedPattern={group_id:string;weekday:number;start_time:string;end_time:string;default_count:number};
 
-const WEEK=['日','一','二','三','四','五','六'];
-const weekday=(date:string)=>new Date(`${date}T00:00:00`).getDay();
+const WEEK=['一','二','三','四','五','六','日'];
+const isoWeekday=(date:string)=>{const d=new Date(`${date}T00:00:00`).getDay();return d===0?7:d;};
 
 export default function AirconGroupAttendanceEditor({month,segments,groups,initial,saveAction}:Props){
   const [values,setValues]=useState<Record<string,number>>(initial);
   const patterns=useMemo<Pattern[]>(()=>{
     const map=new Map<string,{key:string;weekday:number;start:string;end:string;totals:number[];count:number}>();
     for(const s of segments){
-      const wd=weekday(s.date),key=`${wd}-${s.start}-${s.end}`;const old=map.get(key);
+      const wd=isoWeekday(s.date),key=`${wd}-${s.start}-${s.end}`;const old=map.get(key);
       if(old){old.totals.push(s.total);old.count+=1;}else map.set(key,{key,weekday:wd,start:s.start,end:s.end,totals:[s.total],count:1});
     }
     return [...map.values()].map(p=>({key:p.key,weekday:p.weekday,start:p.start,end:p.end,usualTotal:Math.max(...p.totals),count:p.count})).sort((a,b)=>a.weekday-b.weekday||a.start.localeCompare(b.start));
@@ -25,6 +26,22 @@ export default function AirconGroupAttendanceEditor({month,segments,groups,initi
   })),[groups,segments,initial]);
   const [quickCounts,setQuickCounts]=useState<Record<string,number>>(defaultQuickCounts);
   const [selected,setSelected]=useState<Record<string,string[]>>({});
+  const [moduleLoaded,setModuleLoaded]=useState(false);
+
+  useEffect(()=>{
+    let cancelled=false;
+    fetch('/api/aircon/group-patterns',{cache:'no-store'}).then(r=>r.ok?r.json():{patterns:[]}).then((payload:{patterns?:SavedPattern[]})=>{
+      if(cancelled)return;
+      const sel:Record<string,string[]>={};const counts:Record<string,number>={...defaultQuickCounts};
+      for(const p of payload.patterns??[]){
+        const start=String(p.start_time).slice(0,5),end=String(p.end_time).slice(0,5);const key=`${Number(p.weekday)}-${start}-${end}`;
+        sel[p.group_id]=[...(sel[p.group_id]??[]),key];counts[p.group_id]=Number(p.default_count??0);
+      }
+      setSelected(sel);setQuickCounts(counts);setModuleLoaded(true);
+    }).catch(()=>setModuleLoaded(true));
+    return ()=>{cancelled=true;};
+  },[defaultQuickCounts]);
+
   const rows=useMemo(()=>segments.map(s=>{const counts=groups.map(g=>Math.max(0,Number(values[`${s.id}:${g.id}`]??0)));const sum=counts.reduce((a,b)=>a+b,0);return {...s,counts,sum,diff:s.total-sum};}),[segments,groups,values]);
   const complete=rows.filter(r=>r.diff===0).length;
   const over=rows.filter(r=>r.diff<0).length;
@@ -32,30 +49,32 @@ export default function AirconGroupAttendanceEditor({month,segments,groups,initi
   const togglePattern=(groupId:string,key:string)=>setSelected(prev=>{const list=prev[groupId]??[];return {...prev,[groupId]:list.includes(key)?list.filter(x=>x!==key):[...list,key]};});
   const applyGroup=(groupId:string)=>{
     const count=Math.max(0,Math.floor(Number(quickCounts[groupId]??0)));const picks=new Set(selected[groupId]??[]);if(!picks.size)return;
-    setValues(prev=>{const next={...prev};for(const s of segments){const key=`${weekday(s.date)}-${s.start}-${s.end}`;if(picks.has(key))next[`${s.id}:${groupId}`]=count;}return next;});
+    setValues(prev=>{const next={...prev};for(const s of segments){const key=`${isoWeekday(s.date)}-${s.start}-${s.end}`;if(picks.has(key))next[`${s.id}:${groupId}`]=count;}return next;});
   };
   const clearGroup=(groupId:string)=>setValues(prev=>{const next={...prev};for(const s of segments)next[`${s.id}:${groupId}`]=0;return next;});
+  const selectedPatternObjects=(groupId:string)=>(selected[groupId]??[]).map(key=>patterns.find(p=>p.key===key)).filter(Boolean).map(p=>({weekday:p!.weekday,start:p!.start,end:p!.end}));
 
   return <form action={saveAction} className="groupAttendanceForm">
     <input type="hidden" name="month" value={month}/>
+    {groups.map(g=><span key={`hidden-${g.id}`}><input type="hidden" name={`module_count_${g.id}`} value={quickCounts[g.id]??0}/><input type="hidden" name={`module_patterns_${g.id}`} value={JSON.stringify(selectedPatternObjects(g.id))}/></span>)}
     <div className="quickFillBox">
-      <div className="quickFillIntro"><b>⚡ 依固定每週出勤模板快速帶入</b><span>每個群組先填「平常出席人數」，再勾選會出席的固定時段；按一次即可套用到整個月。特殊日期仍可在下方單獨修改。</span></div>
+      <div className="quickFillIntro"><b>⚡ 固定月費群組模組</b><span>設定一次後會記住。下個月進來時，勾選的固定時段與平常帶入人數會自動保留；只要微調人數或特殊日期即可。</span></div>
       <div className="quickGroupGrid">{groups.map(g=><article key={g.id} className="quickGroupCard">
         <header><b>{g.name}</b><label>平常帶入人數<input type="number" min="0" inputMode="numeric" value={quickCounts[g.id]??0} onChange={e=>setQuickCounts(v=>({...v,[g.id]:Math.max(0,Math.floor(Number(e.target.value)||0))}))}/></label></header>
-        <div className="templateChoices">{patterns.map(p=>{const checked=(selected[g.id]??[]).includes(p.key);return <label key={p.key} className={checked?'picked':''}><input type="checkbox" checked={checked} onChange={()=>togglePattern(g.id,p.key)}/><span><b>週{WEEK[p.weekday]} {p.start}–{p.end}</b><small>本月 {p.count} 次 · 時段總人數約 {p.usualTotal}</small></span></label>})}</div>
+        <div className="templateChoices">{patterns.map(p=>{const checked=(selected[g.id]??[]).includes(p.key);return <label key={p.key} className={checked?'picked':''}><input type="checkbox" checked={checked} onChange={()=>togglePattern(g.id,p.key)}/><span><b>週{WEEK[p.weekday-1]} {p.start}–{p.end}</b><small>本月 {p.count} 次 · 時段總人數約 {p.usualTotal}</small></span></label>})}</div>
         <div className="quickActions"><button type="button" className="secondaryButton" onClick={()=>setSelected(v=>({...v,[g.id]:patterns.map(p=>p.key)}))}>全選時段</button><button type="button" className="secondaryButton" onClick={()=>setSelected(v=>({...v,[g.id]:[]}))}>取消全選</button><button type="button" className="dangerButton" onClick={()=>clearGroup(g.id)}>清除此組</button><button type="button" className="primaryButton" disabled={(selected[g.id]??[]).length===0} onClick={()=>applyGroup(g.id)}>套用此群組</button></div>
       </article>)}</div>
-      <div className="quickHint">套用後只是先填入下方表格，<b>還沒有寫入資料庫</b>；確認「群組合計／出勤總數」正確後，再按「一次儲存整月群組人數」。</div>
+      <div className="quickHint">{moduleLoaded?'固定模組已載入。':'正在讀取固定模組…'} 套用後先填入下方表格；最後按「一次儲存整月群組人數」，會同時保存本月資料與固定模組。</div>
     </div>
 
-    <div className="groupAttendanceBar"><div><b>{complete}/{rows.length} 個時段已完整分組</b><span>{over?`有 ${over} 個時段超過總人數，請先修正。`:'每列群組合計應與學生出勤的總人數一致。'}</span></div><button className="primaryButton" disabled={over>0}>💾 一次儲存整月群組人數</button></div>
+    <div className="groupAttendanceBar"><div><b>{complete}/{rows.length} 個時段已完整分組</b><span>{over?`有 ${over} 個時段超過總人數，請先修正。`:'不足的時段可以先儲存；結果區可選擇把剩餘人數列為「未分類／其他」。'}</span></div><button className="primaryButton" disabled={over>0}>💾 一次儲存整月群組人數</button></div>
     <div className="groupAttendanceTable">
       <div className="groupAttendanceHead"><span>日期／時段</span><span>學生出勤總數</span>{groups.map(g=><span key={g.id}>{g.name}</span>)}<span>群組合計</span></div>
       {rows.map(r=><div className={`groupAttendanceRow ${r.diff===0?'complete':r.diff<0?'over':'incomplete'}`} key={r.id}>
         <div className="segmentLabel"><b>{r.date}</b><span>{r.start}–{r.end}</span></div>
         <strong>{r.total} 人</strong>
         {groups.map((g,i)=>{const key=`${r.id}:${g.id}`;return <label key={g.id}><span>{g.name}</span><input type="number" min="0" inputMode="numeric" name={`g_${r.id}_${g.id}`} value={r.counts[i]} onChange={e=>set(key,e.target.value)}/></label>})}
-        <div className="rowCheck"><b>{r.sum}/{r.total}</b><span>{r.diff===0?'完成':r.diff>0?`尚差 ${r.diff} 人`:`超過 ${Math.abs(r.diff)} 人`}</span></div>
+        <div className="rowCheck"><b>{r.sum}/{r.total}</b><span>{r.diff===0?'完成':r.diff>0?`未分類 ${r.diff} 人`:`超過 ${Math.abs(r.diff)} 人`}</span></div>
       </div>)}
     </div>
     <div className="groupAttendanceFooter"><button className="primaryButton" disabled={over>0}>💾 一次儲存整月群組人數</button></div>
