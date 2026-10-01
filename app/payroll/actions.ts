@@ -14,10 +14,10 @@ export async function updateStaffMember(formData:FormData){const {supabase,teamI
 export async function archiveStaffMember(formData:FormData){const {supabase,teamId}=await ctx();const id=String(formData.get('id')??'');const {error}=await supabase.from('staff_members').update({active:false,updated_at:new Date().toISOString()}).eq('id',id).eq('team_id',teamId);if(error)redirect('/payroll?error='+enc(error.message));redirect('/payroll?message='+enc('人員已停用。'));}
 
 export async function saveCoachPayRule(formData:FormData){
-  const {supabase,teamId}=await ctx();const staffId=String(formData.get('staff_id')??'');const method=String(formData.get('method')??'fixed_monthly');const monthly=Number(formData.get('monthly_salary')??0);const base=Number(formData.get('base_hourly_rate')??0);const per=Number(formData.get('per_student_hour')??0);const note=String(formData.get('note')??'').trim()||null;
-  if(!staffId||!['fixed_monthly','weighted_students'].includes(method)||![monthly,base,per].every(Number.isFinite)||monthly<0||base<0||per<0)redirect('/payroll?error='+enc('請確認計薪方式與金額。'));
+  const {supabase,teamId}=await ctx();const staffId=String(formData.get('staff_id')??'');const method=String(formData.get('method')??'fixed_monthly');const monthly=Number(formData.get('monthly_salary')??0);const base=Number(formData.get('base_hourly_rate')??0);const per=Number(formData.get('per_student_hour')??0);const multiplier=Number(formData.get('weight_multiplier')??1);const note=String(formData.get('note')??'').trim()||null;
+  if(!staffId||!['fixed_monthly','weighted_students'].includes(method)||![monthly,base,per,multiplier].every(Number.isFinite)||monthly<0||base<0||per<0||multiplier<0)redirect('/payroll?error='+enc('請確認計薪方式、金額與加權比例。'));
   const staff=await staffInfo(supabase,teamId,staffId);if(!staff)redirect('/payroll?error='+enc('找不到這位人員。'));
-  const payload={team_id:teamId,staff_id:staff.id,coach_user_id:staff.linked_user_id,method,monthly_salary:monthly,hourly_rate:0,base_hourly_rate:base,per_student_hour:per,tier_rules:[],note,updated_at:new Date().toISOString()};
+  const payload={team_id:teamId,staff_id:staff.id,coach_user_id:staff.linked_user_id,method,monthly_salary:monthly,weight_multiplier:multiplier,hourly_rate:0,base_hourly_rate:base,per_student_hour:per,tier_rules:[],note,updated_at:new Date().toISOString()};
   const {data:existing}=await supabase.from('coach_pay_rules').select('id').eq('team_id',teamId).eq('staff_id',staffId).maybeSingle();const result=existing?.id?await supabase.from('coach_pay_rules').update(payload).eq('id',existing.id):await supabase.from('coach_pay_rules').insert(payload);if(result.error)redirect('/payroll?error='+enc(result.error.message));redirect('/payroll?message='+enc('計薪規則已儲存。'));
 }
 
