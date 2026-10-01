@@ -20,17 +20,42 @@ export async function updateCoachAttendanceBulk(formData:FormData){
   const {supabase,teamId}=await ctx();
   const month=String(formData.get('month')??'').slice(0,7);
   if(!/^\d{4}-\d{2}$/.test(month))redirect('/payroll?error='+enc('月份格式錯誤。'));
-  const ids=formData.getAll('work_id').map(String).filter(Boolean);
+
+  const ids=[...new Set(formData.getAll('work_id').map(String).filter(Boolean))];
+  if(!ids.length)redirect(`/payroll?month=${month}&message=${enc('本月沒有需要儲存的教練出勤。')}#coach-attendance`);
+
+  const {data:existing,error:loadError}=await supabase
+    .from('coach_attendance_segments')
+    .select('id,team_id,coach_user_id,staff_id,work_date,start_time,end_time,student_count,scope_type,grade,training_group_id,source,note')
+    .eq('team_id',teamId)
+    .in('id',ids);
+  if(loadError)redirect(`/payroll?month=${month}&error=${enc(loadError.message)}#coach-attendance`);
+
+  const existingMap=new Map((existing??[]).map((row:any)=>[String(row.id),row]));
+  const removeIds:string[]=[];
+  const updates:any[]=[];
+
   for(const id of ids){
+    const row=existingMap.get(id);
+    if(!row)continue;
     const remove=String(formData.get(`delete_${id}`)??'')==='1';
-    if(remove){const {error}=await supabase.from('coach_attendance_segments').delete().eq('id',id).eq('team_id',teamId);if(error)redirect(`/payroll?month=${month}&error=${enc(error.message)}`);continue;}
+    if(remove){removeIds.push(id);continue;}
     const workDate=String(formData.get(`work_date_${id}`)??'');
     const start=String(formData.get(`start_time_${id}`)??'');
     const end=String(formData.get(`end_time_${id}`)??'');
     const note=String(formData.get(`note_${id}`)??'').trim()||null;
-    if(!workDate||!start||!end||end<=start)redirect(`/payroll?month=${month}&error=${enc(`請檢查 ${workDate||'某日'} 的教練出勤時間。`)}`);
-    const {error}=await supabase.from('coach_attendance_segments').update({work_date:workDate,start_time:start,end_time:end,note}).eq('id',id).eq('team_id',teamId);
-    if(error)redirect(`/payroll?month=${month}&error=${enc(error.message)}`);
+    if(!workDate||!start||!end||end<=start)redirect(`/payroll?month=${month}&error=${enc(`請檢查 ${workDate||'某日'} 的教練出勤時間。`)}#coach-attendance`);
+    updates.push({...row,work_date:workDate,start_time:start,end_time:end,note});
   }
-  redirect(`/payroll?month=${month}&message=${enc('本月教練實際出勤已一次儲存。')}#coach-attendance`);
+
+  if(updates.length){
+    const {error}=await supabase.from('coach_attendance_segments').upsert(updates,{onConflict:'id'});
+    if(error)redirect(`/payroll?month=${month}&error=${enc(error.message)}#coach-attendance`);
+  }
+  if(removeIds.length){
+    const {error}=await supabase.from('coach_attendance_segments').delete().eq('team_id',teamId).in('id',removeIds);
+    if(error)redirect(`/payroll?month=${month}&error=${enc(error.message)}#coach-attendance`);
+  }
+
+  redirect(`/payroll?month=${month}&message=${enc(`本月教練實際出勤已一次儲存（更新 ${updates.length} 筆${removeIds.length?`、刪除 ${removeIds.length} 筆`:''}）。`)}#coach-attendance`);
 }
