@@ -1,0 +1,2 @@
+drop index if exists public.attendance_template_exceptions_unique_student;
+create unique index if not exists attendance_template_exceptions_unique_student_all on public.attendance_template_exceptions(template_id,student_id);
