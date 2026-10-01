@@ -104,6 +104,14 @@ export default async function PayrollPage({
   const activeStaff = staffList.filter((s) => s.active);
   const staffMap = new Map(staffList.map((s) => [s.id, s]));
   const workList = (monthlyWorks ?? []) as Work[];
+  const worksByDate = new Map<string, Work[]>();
+  for (const w of workList) {
+    const list = worksByDate.get(w.work_date) ?? [];
+    list.push(w);
+    worksByDate.set(w.work_date, list);
+  }
+  const workDays = [...worksByDate.entries()].sort(([a], [b]) => a.localeCompare(b));
+
   const ruleMap = new Map<string, Rule>();
   for (const r of (rules ?? []) as Rule[]) {
     const k = r.staff_id || r.coach_user_id;
@@ -134,9 +142,9 @@ export default async function PayrollPage({
 
   const weightMap = new Map<string, number>();
   let totalWeight = 0;
+  const atts = calculate ? ((monthlyAttResult.data ?? []) as Att[]) : [];
 
   if (calculate) {
-    const atts = (monthlyAttResult.data ?? []) as Att[];
     const byDate = new Map<string, Att[]>();
     for (const a of atts) {
       const list = byDate.get(a.attendance_date) ?? [];
@@ -199,7 +207,7 @@ export default async function PayrollPage({
   return (
     <main className="shell">
       <section className="hero compactHero">
-        <div className="eyebrow">PAYROLL V5 · MONTHLY POOL</div>
+        <div className="eyebrow">PAYROLL V6 · MONTHLY POOL</div>
         <h1>教練薪酬</h1>
         <p>固定班表跨月份共用；實際出勤按月調整。加權型教練依「出勤時間 × 當時學生人數」的整月權重分配可分配教練池。</p>
         <div className="topNav">
@@ -301,8 +309,8 @@ export default async function PayrollPage({
       </section>
 
       <section className="card" id="coach-attendance">
-        <div className="sectionTitle"><div><span>04</span><h2>本月教練實際出勤</h2></div><strong>{workList.length} 段</strong></div>
-        <div className="notice">這裡一次看到整個月所有教練的實際出勤。可直接改日期、開始、結束與備註；需要刪除就勾選「刪除」，最後一次儲存整月。</div>
+        <div className="sectionTitle"><div><span>04</span><h2>本月教練實際出勤</h2></div><strong>{workDays.length} 天｜{workList.length} 段</strong></div>
+        <div className="notice">同一天的教練集中在同一張日期卡片內。可直接改時間與備註；需要刪除就勾選，最後一次儲存整月。</div>
         <form action={addCoachAttendance} className="grid">
           <label>人員<select name="staff_id">{activeStaff.map((s) => <option key={s.id} value={s.id}>{s.display_name}</option>)}</select></label>
           <label>日期<input type="date" name="work_date" defaultValue={`${month}-01`} required /></label>
@@ -317,18 +325,26 @@ export default async function PayrollPage({
         ) : (
           <form action={updateCoachAttendanceBulk} className="attendanceBulk">
             <input type="hidden" name="month" value={month} />
-            <div className="attendanceHead"><span>日期</span><span>教練</span><span>開始</span><span>結束</span><span>備註</span><span>刪除</span></div>
-            {workList.map((w) => (
-              <div className="attendanceRow" key={w.id}>
-                <input type="hidden" name="work_id" value={w.id} />
-                <input type="date" name={`work_date_${w.id}`} defaultValue={w.work_date} />
-                <b>{nameFor(w)}</b>
-                <input type="time" name={`start_time_${w.id}`} defaultValue={String(w.start_time).slice(0, 5)} />
-                <input type="time" name={`end_time_${w.id}`} defaultValue={String(w.end_time).slice(0, 5)} />
-                <input name={`note_${w.id}`} defaultValue={w.note ?? ''} placeholder={w.source === 'template' ? '固定班表' : '手動'} />
-                <label className="deleteCheck"><input type="checkbox" name={`delete_${w.id}`} value="1" /> 刪除</label>
-              </div>
-            ))}
+            <div className="bulkTop"><span>共 {workDays.length} 個出勤日，修改完成後一次儲存。</span><button className="primaryButton">💾 一次儲存本月全部出勤</button></div>
+            <div className="attendanceDays">
+              {workDays.map(([date, dayWorks]) => (
+                <section className="attendanceDay" key={date}>
+                  <header className="attendanceDayHead"><div><b>{date}</b><span>{dayWorks.length} 位教練／人員</span></div><strong>{dayWorks.map(nameFor).join('、')}</strong></header>
+                  <div className="attendanceHead"><span>教練</span><span>開始</span><span>結束</span><span>備註</span><span>刪除</span></div>
+                  {dayWorks.map((w) => (
+                    <div className="attendanceRow" key={w.id}>
+                      <input type="hidden" name="work_id" value={w.id} />
+                      <input type="hidden" name={`work_date_${w.id}`} value={w.work_date} />
+                      <b>{nameFor(w)}</b>
+                      <input type="time" name={`start_time_${w.id}`} defaultValue={String(w.start_time).slice(0, 5)} />
+                      <input type="time" name={`end_time_${w.id}`} defaultValue={String(w.end_time).slice(0, 5)} />
+                      <input name={`note_${w.id}`} defaultValue={w.note ?? ''} placeholder={w.source === 'template' ? '固定班表' : '手動'} />
+                      <label className="deleteCheck"><input type="checkbox" name={`delete_${w.id}`} value="1" /> 刪除</label>
+                    </div>
+                  ))}
+                </section>
+              ))}
+            </div>
             <div className="bulkFooter"><button className="primaryButton">💾 一次儲存本月全部出勤</button></div>
           </form>
         )}
@@ -358,14 +374,14 @@ export default async function PayrollPage({
             {(finance ?? []).filter((x: any) => x.item_type === 'expense').map((x: any) => (
               <article key={x.id}><div><b>{x.category}</b><span>{x.description ?? ''}</span></div><strong>-${Number(x.amount).toLocaleString()}</strong><form action={deleteFinanceItem}><input type="hidden" name="id" value={x.id} /><input type="hidden" name="month" value={month} /><button className="dangerButton">刪除</button></form></article>
             ))}
-            {meter ? <article className="systemExpense"><div><b>冷氣費（系統）</b><span>由冷氣電表結算自動帶入</span></div><strong>-${Math.round(airconCost).toLocaleString()}</strong></article> : null}
+            {meter ? <article className="systemExpense"><div><b>冷氣費（系統）</b><span>由冷氣電表結算自動帶入</span></div><strong>-${Math.ceil(airconCost).toLocaleString()}</strong></article> : null}
           </div>
         </div>
 
         <div className="moneySummary">
           <div><span>收入合計</span><b>${Math.round(income).toLocaleString()}</b></div>
-          <div><span>營運支出</span><b>${Math.round(operatingExpense).toLocaleString()}</b></div>
-          <div><span>扣薪前可用</span><b>${Math.round(beforeCoachPool).toLocaleString()}</b></div>
+          <div><span>營運支出</span><b>${Math.ceil(operatingExpense).toLocaleString()}</b></div>
+          <div><span>扣薪前可用</span><b>${Math.floor(beforeCoachPool).toLocaleString()}</b></div>
         </div>
       </section>
 
@@ -379,14 +395,22 @@ export default async function PayrollPage({
         </div>
 
         {!calculate ? (
-          <Link className="primaryButton calc" href={`/payroll?month=${month}&calculate=1#coach-pay`}>計算本月薪酬分配</Link>
+          <form method="get" action="/payroll#coach-pay" className="calcForm">
+            <input type="hidden" name="month" value={month} />
+            <input type="hidden" name="calculate" value="1" />
+            <button className="primaryButton calc" type="submit">計算本月薪酬分配</button>
+          </form>
         ) : (
           <>
+            <div className={`notice ${atts.length && workList.length ? 'successNotice' : 'warningNotice'}`}>
+              已讀取 <b>{atts.length} 個學生出勤時段</b>、<b>{workList.length} 段教練實際出勤</b>；加權總人時為 <b>{totalWeight.toFixed(1)}</b>。
+              {!atts.length ? ' 本月沒有學生出勤資料，因此加權薪酬會是 0。' : ''}
+            </div>
             <div className="poolSummary">
               <div><span>收入</span><b>${Math.round(income).toLocaleString()}</b></div>
-              <div><span>營運支出</span><b>-${Math.round(operatingExpense).toLocaleString()}</b></div>
+              <div><span>營運支出</span><b>-${Math.ceil(operatingExpense).toLocaleString()}</b></div>
               <div><span>固定月薪</span><b>-${Math.round(fixedPayTotal).toLocaleString()}</b></div>
-              <div><span>加權教練可分配池</span><b>${Math.round(weightedPool).toLocaleString()}</b></div>
+              <div><span>加權教練可分配池</span><b>${Math.floor(weightedPool).toLocaleString()}</b></div>
             </div>
 
             <div className="salaryGrid">
@@ -437,43 +461,16 @@ export default async function PayrollPage({
         .scheduleGrid span,.scheduleGrid small{font-size:12px;color:#748191}
         .applyBar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:12px;padding:11px;border-radius:13px;background:var(--theme-soft,#f5f3ff)}
         .applyBar span{font-size:12px;color:#637083}
-        .attendanceBulk{margin-top:12px;border:1px solid #e1e6eb;border-radius:14px;overflow:hidden}
-        .attendanceHead,.attendanceRow{display:grid;grid-template-columns:145px 120px 145px 145px minmax(180px,1fr) 70px;gap:7px;align-items:center}
-        .attendanceHead{padding:9px 10px;background:var(--theme-soft,#f4f7fa);font-size:11px;font-weight:900;color:#657183}
-        .attendanceRow{padding:7px 10px;border-top:1px solid #eef1f4}
-        .attendanceRow b{font-size:12px}
-        .attendanceRow input{width:100%;min-width:0}
-        .deleteCheck{font-size:11px;color:#a1443e;white-space:nowrap}
-        .deleteCheck input{width:auto}
-        .bulkFooter{display:flex;justify-content:flex-end;padding:12px;border-top:1px solid #eef1f4}
-        .financeCols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
-        .financeCols>div{border:1px solid #e1e6eb;border-radius:14px;padding:10px;background:#fff}
-        .financeCols h3{margin:0 0 7px;font-size:14px}
-        .financeCols article{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-top:1px solid #eef1f4}
-        .financeCols article:first-of-type{border-top:0}
-        .financeCols article>div{display:flex;flex-direction:column}
-        .financeCols article span{font-size:11px;color:#748191}
-        .systemExpense{background:#faf9ff}
-        .moneySummary,.poolSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
-        .poolSummary{grid-template-columns:repeat(4,1fr)}
-        .moneySummary div,.poolSummary div{padding:12px;border-radius:12px;background:var(--theme-soft,#f4f7fa)}
-        .moneySummary span,.poolSummary span{display:block;font-size:11px;color:#748191}
-        .moneySummary b,.poolSummary b{font-size:18px}
-        .formulaBox{display:grid;gap:5px;padding:12px;border-radius:13px;background:var(--theme-soft,#f4f7fa);font-size:12px;color:#596577}
-        .formulaBox b{color:#263244}
-        .salaryGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}
-        .salaryGrid article{padding:13px;border:1px solid #e1e6eb;border-radius:14px;background:#fff}
-        .salaryGrid header{display:flex;justify-content:space-between;gap:8px}
-        .salaryGrid header span{font-size:11px;color:var(--theme-accent,#7c3aed);font-weight:800}
-        .salaryGrid strong{display:block;margin-top:8px;font-size:22px}
-        .salaryGrid small{color:#748191}
-        .calc{display:inline-block;text-decoration:none;margin-top:10px}
-        .closeSummary{margin-top:12px;padding:14px;border-radius:14px;background:var(--theme-soft,#f4f7fa)}
-        .negative{color:#c0392b}
-        summary{cursor:pointer;margin:10px 0}
-        @media(max-width:1000px){.staffEdit,.payRule{grid-template-columns:1fr 1fr}.staffEdit button,.payRule button{grid-column:1/-1}.scheduleGrid{grid-template-columns:1fr 1fr}.attendanceHead{display:none}.attendanceRow{grid-template-columns:1fr 1fr 1fr}.attendanceRow b{order:-1}.attendanceRow input[name^="note_"]{grid-column:1/-1}.financeCols{grid-template-columns:1fr}.salaryGrid{grid-template-columns:1fr 1fr}}
-        @media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.poolSummary,.moneySummary{grid-template-columns:1fr 1fr}.applyBar{align-items:stretch;flex-direction:column}.attendanceRow{grid-template-columns:1fr 1fr}.attendanceRow input[type="date"],.attendanceRow input[name^="note_"]{grid-column:1/-1}.salaryGrid{grid-template-columns:1fr}}
-        @media(max-width:560px){.inline{align-items:stretch;flex-direction:column}.grid,.staffEdit,.payRule,.scheduleGrid,.poolSummary,.moneySummary,.attendanceRow{grid-template-columns:1fr}.wide{grid-column:auto}.grid input[type="time"],.attendanceRow input[type="time"]{min-width:0}.attendanceRow input[type="date"],.attendanceRow input[name^="note_"]{grid-column:auto}}
+        .attendanceBulk{margin-top:12px}
+        .bulkTop,.bulkFooter{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0}.bulkTop span{font-size:12px;color:#748191}.bulkFooter{justify-content:flex-end}
+        .attendanceDays{display:grid;gap:12px}.attendanceDay{border:1px solid #e1e6eb;border-radius:15px;overflow:hidden;background:#fff}.attendanceDayHead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;background:linear-gradient(90deg,var(--theme-soft,#f4f1ff),#fff)}.attendanceDayHead>div{display:flex;align-items:baseline;gap:10px}.attendanceDayHead b{font-size:15px}.attendanceDayHead span{font-size:11px;color:#748191}.attendanceDayHead strong{font-size:11px;color:var(--theme-accent,#7c3aed);text-align:right}
+        .attendanceHead,.attendanceRow{display:grid;grid-template-columns:130px 145px 145px minmax(180px,1fr) 70px;gap:7px;align-items:center}.attendanceHead{padding:8px 10px;background:#fafbfc;font-size:10px;font-weight:900;color:#657183}.attendanceRow{padding:7px 10px;border-top:1px solid #eef1f4}.attendanceRow b{font-size:12px}.attendanceRow input{width:100%;min-width:0}.deleteCheck{font-size:11px;color:#a1443e;white-space:nowrap}.deleteCheck input{width:auto}
+        .financeCols{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.financeCols>div{border:1px solid #e1e6eb;border-radius:14px;padding:10px;background:#fff}.financeCols h3{margin:0 0 7px;font-size:14px}.financeCols article{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-top:1px solid #eef1f4}.financeCols article:first-of-type{border-top:0}.financeCols article>div{display:flex;flex-direction:column}.financeCols article span{font-size:11px;color:#748191}.systemExpense{background:#faf9ff}
+        .moneySummary,.poolSummary{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.poolSummary{grid-template-columns:repeat(4,1fr)}.moneySummary div,.poolSummary div{padding:12px;border-radius:12px;background:var(--theme-soft,#f4f7fa)}.moneySummary span,.poolSummary span{display:block;font-size:11px;color:#748191}.moneySummary b,.poolSummary b{font-size:18px}
+        .formulaBox{display:grid;gap:5px;padding:12px;border-radius:13px;background:var(--theme-soft,#f4f7fa);font-size:12px;color:#596577}.formulaBox b{color:#263244}.calcForm{margin:0}.salaryGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-top:12px}.salaryGrid article{padding:13px;border:1px solid #e1e6eb;border-radius:14px;background:#fff}.salaryGrid header{display:flex;justify-content:space-between;gap:8px}.salaryGrid header span{font-size:11px;color:var(--theme-accent,#7c3aed);font-weight:800}.salaryGrid strong{display:block;margin-top:8px;font-size:22px}.salaryGrid small{color:#748191}.calc{display:inline-block;text-decoration:none;margin-top:10px}.closeSummary{margin-top:12px;padding:14px;border-radius:14px;background:var(--theme-soft,#f4f7fa)}.negative{color:#c0392b}summary{cursor:pointer;margin:10px 0}
+        @media(max-width:1000px){.staffEdit,.payRule{grid-template-columns:1fr 1fr}.staffEdit button,.payRule button{grid-column:1/-1}.scheduleGrid{grid-template-columns:1fr 1fr}.attendanceHead{display:none}.attendanceRow{grid-template-columns:120px 1fr 1fr}.attendanceRow input[name^="note_"]{grid-column:1/-1}.attendanceDayHead{align-items:flex-start;flex-direction:column}.financeCols{grid-template-columns:1fr}.salaryGrid{grid-template-columns:1fr 1fr}}
+        @media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.poolSummary,.moneySummary{grid-template-columns:1fr 1fr}.applyBar,.bulkTop{align-items:stretch;flex-direction:column}.attendanceRow{grid-template-columns:1fr 1fr}.attendanceRow b{grid-column:1/-1}.attendanceRow input[name^="note_"]{grid-column:1/-1}.salaryGrid{grid-template-columns:1fr}}
+        @media(max-width:560px){.inline{align-items:stretch;flex-direction:column}.grid,.staffEdit,.payRule,.scheduleGrid,.poolSummary,.moneySummary,.attendanceRow{grid-template-columns:1fr}.wide{grid-column:auto}.grid input[type="time"],.attendanceRow input[type="time"]{min-width:0}.attendanceRow b,.attendanceRow input[name^="note_"]{grid-column:auto}.attendanceDayHead strong{text-align:left}}
       `}</style>
     </main>
   );
