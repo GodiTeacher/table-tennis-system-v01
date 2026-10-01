@@ -20,7 +20,7 @@ export async function importAirconRunsFromAttendance(formData:FormData){
     supabase.from('aircon_meter_records').select('id').eq('team_id',teamId).eq('record_month',start).maybeSingle(),
   ]);
   if(aError)redirect(`/aircon?month=${month}&error=${enc(aError.message)}`);
-  await supabase.from('aircon_runs').delete().eq('team_id',teamId).gte('usage_date',start).lt('usage_date',next).eq('source','attendance_count');
+  await supabase.from('aircon_runs').delete().eq('team_id',teamId).gte('usage_date',start).lt('usage_date',next).in('source',['attendance_count','attendance_grade']);
   const byDate=new Map<string,{start:string;end:string}[]>();for(const a of attendance??[]){const list=byDate.get(a.attendance_date)??[];list.push({start:String(a.start_time).slice(0,5),end:String(a.end_time).slice(0,5)});byDate.set(a.attendance_date,list);}
   const rows:any[]=[];for(const [date,intervals] of byDate){intervals.sort((a,b)=>a.start.localeCompare(b.start));const merged:{start:string;end:string}[]=[];for(const it of intervals){const last=merged[merged.length-1];if(last&&it.start<=last.end){if(it.end>last.end)last.end=it.end;}else merged.push({...it});}for(const it of merged)rows.push({team_id:teamId,meter_record_id:meter?.id??null,usage_date:date,start_time:it.start,end_time:it.end,note:'由學生每日出勤時段帶入',source:'attendance_count',source_grade:null,created_by:userId});}
   if(rows.length){const {error}=await supabase.from('aircon_runs').insert(rows);if(error)redirect(`/aircon?month=${month}&error=${enc(error.message)}`);}
