@@ -30,6 +30,39 @@ export async function saveMeterRecord(formData:FormData){
   redirect('/aircon?message='+encodeURIComponent('每月冷氣電表資料已儲存。'));
 }
 
+export async function saveMonthAllocation(formData:FormData){
+  const {supabase,teamId}=await context();
+  const raw=String(formData.get('record_month')??'');
+  const month=raw?`${raw.slice(0,7)}-01`:'';
+  const mode=String(formData.get('allocation_mode')??'grade');
+  if(!month||!['grade','individual'].includes(mode)) redirect('/aircon?error='+encodeURIComponent('請確認月份與分攤方式。'));
+  const {error}=await supabase.from('aircon_month_settings').upsert({team_id:teamId,record_month:month,allocation_mode:mode},{onConflict:'team_id,record_month'});
+  if(error) redirect('/aircon?error='+encodeURIComponent(error.message));
+  revalidatePath('/aircon');
+  redirect(`/aircon?month=${raw.slice(0,7)}&message=${encodeURIComponent('本月分攤方式已更新。')}`);
+}
+
+export async function addAirconRun(formData:FormData){
+  const {supabase,userId,teamId}=await context();
+  const meterId=String(formData.get('meter_record_id')??'')||null;
+  const date=String(formData.get('usage_date')??'');
+  const start=String(formData.get('start_time')??'');
+  const end=String(formData.get('end_time')??'');
+  const note=String(formData.get('note')??'').trim()||null;
+  if(!date||!start||!end||end<=start) redirect('/aircon?error='+encodeURIComponent('請確認冷氣開啟日期與時間。'));
+  const {error}=await supabase.from('aircon_runs').insert({team_id:teamId,meter_record_id:meterId,usage_date:date,start_time:start,end_time:end,note,created_by:userId});
+  if(error) redirect('/aircon?error='+encodeURIComponent(error.message));
+  revalidatePath('/aircon');
+  redirect(`/aircon?month=${date.slice(0,7)}&message=${encodeURIComponent('冷氣實際開啟時段已新增。')}`);
+}
+
+export async function deleteAirconRun(formData:FormData){
+  const {supabase,teamId}=await context();
+  const id=String(formData.get('id')??'');
+  await supabase.from('aircon_runs').delete().eq('id',id).eq('team_id',teamId);
+  revalidatePath('/aircon');
+}
+
 export async function addUsageSession(formData:FormData){
   const {supabase,userId,teamId}=await context();
   const meterId=String(formData.get('meter_record_id')??'')||null;
