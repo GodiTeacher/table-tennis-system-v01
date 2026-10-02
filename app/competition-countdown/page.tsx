@@ -25,12 +25,13 @@ function dateLabel(value:string){const [y,m,d]=value.split('-');return `${y}/${m
 
 export default async function CompetitionCountdownPage(){
   const supabase=await createClient(); const {data:claims}=await supabase.auth.getClaims(); if(!claims?.claims?.sub)redirect('/login');
+  const {data:teamId}=await supabase.rpc('current_team_id');if(!teamId)redirect('/settings');
   const today=taipeiToday();
   const [{data:competitions},{data:holidays}]=await Promise.all([
-    supabase.from('competitions').select('id,name,start_date,end_date,location,status').gte('start_date',today).not('status','in','(completed,cancelled)').order('start_date',{ascending:true}),
-    supabase.from('competition_holidays').select('id,holiday_date,name').gte('holiday_date',today).order('holiday_date',{ascending:true}),
+    supabase.from('competitions').select('id,name,start_date,end_date,location,status').eq('team_id',teamId).gte('start_date',today).not('status','in','(completed,cancelled)').order('start_date',{ascending:true}),
+    supabase.from('competition_holidays').select('id,holiday_date,name').eq('team_id',teamId).gte('holiday_date',today).order('holiday_date',{ascending:true}),
   ]);
-  const holidaySet=new Set((holidays??[]).map(h=>h.holiday_date));
+  const holidaySet=new Set<string>((holidays??[]).map(h=>String(h.holiday_date)));
   return <main className="shell countdownPage">
     <section className="hero compactHero"><div className="eyebrow">COMPETITION COUNTDOWN</div><h1>比賽倒數</h1><p>直接讀取比賽管理中的開始日期，同時顯示「實際日曆天數」與「扣除週末／休假日後的準備天數」。</p><div className="topNav"><Link href="/competitions">比賽管理</Link><Link href="/more">更多</Link></div></section>
 
@@ -41,7 +42,7 @@ export default async function CompetitionCountdownPage(){
           <div className="countdownHead"><div><b>{c.name}</b><small>{dateLabel(c.start_date)}{c.end_date&&c.end_date!==c.start_date?` ～ ${dateLabel(c.end_date)}`:''}{c.location?` · ${c.location}`:''}</small></div><Link href={`/competitions/${c.id}`}>管理比賽 ›</Link></div>
           <div className="countdownHalf calendar"><span>未扣假日</span><strong>{raw}</strong><em>天</em><small>實際日曆倒數</small></div>
           <div className="countdownDivider"/>
-          <div className="countdownHalf working"><span>扣除假日</span><strong>{work}</strong><em>天</em><small>扣除週六、週日與自訂休假日；比賽當天保留</small></div>
+          <div className="countdownHalf working"><span>扣除假日</span><strong>{work}</strong><em>天</em><small>扣除週六、週日與本隊設定休假日；比賽當天保留</small></div>
         </article>})}</div>}
       <div className="countdownLegend"><span className="far">30 天以上</span><span className="near">15～30 天</span><span className="soon">8～14 天</span><span className="urgent">4～7 天</span><span className="critical">3 天內</span></div>
     </section>
