@@ -4,5 +4,7 @@
 .opsFlowTop a b{font-size:11px;white-space:nowrap}
 .payRule>input[name="note"],.payRule>button{align-self:start!important;margin-top:20px!important}.payRule>input[name="note"]{min-height:38px}
 body{padding-bottom:82px}
+body[data-hydrating="true"] .appBottomNav,body[data-hydrating="true"] .parentBottomNav,body[data-hydrating="true"] .opsFlowTop{visibility:hidden!important}
+body[data-hydrating="true"] *,body[data-hydrating="true"] *::before,body[data-hydrating="true"] *::after{transition:none!important;animation:none!important}
 @media(max-width:1000px){.payRule>input[name="note"],.payRule>button{margin-top:0!important}}
 @media(max-width:600px){.appBottomNav{bottom:max(8px,env(safe-area-inset-bottom));width:calc(100% - 20px)}.opsFlowTop{bottom:auto;top:6px;width:calc(100% - 20px);padding:6px}.opsFlowTop a{min-height:50px}.opsFlowTop a b{font-size:10.5px}.shell{padding-bottom:98px}}
