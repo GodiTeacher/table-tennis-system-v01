@@ -31,13 +31,14 @@ select t.id,t.name,t.short_name,t.school_name,t.sport_name,t.logo_data_url,t.bra
 from public.teams t where t.public_enabled=true and t.public_slug=lower(trim(target_slug)) limit 1;$$;
 grant execute on function public.get_public_team(text) to anon, authenticated;
 
-create or replace function public.get_public_competitions(target_slug text)
-returns table(id uuid,name text,start_date date,end_date date,location text,registration_deadline date,status text,notes text)
+drop function if exists public.get_public_competitions(text);
+create function public.get_public_competitions(target_slug text)
+returns table(id uuid,name text,start_date date,end_date date,location text,registration_deadline date,status text)
 language sql stable security definer set search_path=public as $$
-select c.id,c.name,c.start_date,c.end_date,c.location,c.registration_deadline,c.status,c.notes
+select c.id,c.name,c.start_date,c.end_date,c.location,c.registration_deadline,c.status
 from public.competitions c join public.teams t on t.id=c.team_id
 where t.public_enabled=true and t.public_slug=lower(trim(target_slug))
-  and coalesce((t.public_modules->>'competitions')::boolean,false)=true
+  and (coalesce((t.public_modules->>'competitions')::boolean,false)=true or coalesce((t.public_modules->>'countdown')::boolean,false)=true)
   and c.status<>'cancelled'
 order by c.start_date asc;$$;
 grant execute on function public.get_public_competitions(text) to anon, authenticated;
