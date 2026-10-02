@@ -3,7 +3,7 @@ import {notFound} from 'next/navigation';
 import {createClient} from '@/lib/supabase/server';
 
 type PublicTeam={team_id:string;name:string;short_name:string|null;school_name:string|null;sport_name:string|null;logo_data_url:string|null;brand_color:string|null;tagline:string|null;public_description:string|null;public_modules:Record<string,boolean>|null};
-type Competition={id:string;name:string;start_date:string;end_date:string|null;location:string|null;registration_deadline:string|null;status:string;notes:string|null};
+type Competition={id:string;name:string;start_date:string;end_date:string|null;location:string|null;registration_deadline:string|null;status:string};
 const MODULES=[
   ['standards','📘','球隊規範','訓練、請假、比賽、器材與家長配合原則'],
   ['rubber_guide','🔴','球皮介紹','認識反膠、顆粒與選擇方向'],
@@ -20,7 +20,7 @@ export default async function PublicTeamPage({params}:{params:Promise<{slug:stri
   const team=(teamRows?.[0] as PublicTeam|undefined);if(!team)notFound();
   const mods=team.public_modules||{};
   let competitions:Competition[]=[];
-  if(mods.competitions){const {data}=await supabase.rpc('get_public_competitions',{target_slug:slug});competitions=(data||[]) as Competition[];}
+  if(mods.competitions||mods.countdown){const {data}=await supabase.rpc('get_public_competitions',{target_slug:slug});competitions=(data||[]) as Competition[];}
   const upcoming=competitions.filter(c=>dayDiff(c.end_date||c.start_date)>=0).slice(0,4);
   const next=upcoming[0];const brand=team.brand_color||'#7c3aed';
   return <main className="publicPortal" style={{'--brand':brand} as React.CSSProperties}>
