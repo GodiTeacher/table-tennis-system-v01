@@ -8,6 +8,7 @@ import AppBottomNav from "@/components/AppBottomNav";
 import ThemeCookieBootstrap from "@/components/ThemeCookieBootstrap";
 import OperationsFlowNav from "@/components/OperationsFlowNav";
 import PublicParentNav from "@/components/PublicParentNav";
+import HydrationStabilizer from "@/components/HydrationStabilizer";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -39,7 +40,8 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
   return (
     <html lang="zh-Hant">
-      <body className={`theme-${theme}`}>
+      <body className={`theme-${theme}`} data-hydrating="true">
+        <HydrationStabilizer />
         {shouldBootstrap ? <ThemeCookieBootstrap theme={theme} /> : null}
         <OperationsFlowNav />
         {children}
