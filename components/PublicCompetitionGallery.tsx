@@ -33,7 +33,11 @@ export default function PublicCompetitionGallery({images,name}:Props){
       <button type="button" className="lightboxClose" onClick={()=>setActive(null)} aria-label="關閉">×</button>
       {clean.length>1?<button type="button" className="lightboxNav prev" onClick={e=>{e.stopPropagation();setActive((active-1+clean.length)%clean.length)}} aria-label="上一張">‹</button>:null}
       <div className="lightboxStage" onClick={e=>e.stopPropagation()}>
-        <img src={clean[active]} alt={`${name} 圖片 ${active+1}`}/>
+        <img
+          src={clean[active]}
+          alt={`${name} 圖片 ${active+1}`}
+          style={{maxWidth:'min(76vw,900px)',maxHeight:'66vh',width:'auto',height:'auto',objectFit:'contain'}}
+        />
         <div className="lightboxCount">{active+1} / {clean.length}</div>
       </div>
       {clean.length>1?<button type="button" className="lightboxNav next" onClick={e=>{e.stopPropagation();setActive((active+1)%clean.length)}} aria-label="下一張">›</button>:null}
@@ -44,15 +48,15 @@ export default function PublicCompetitionGallery({images,name}:Props){
       .publicImageThumb img{display:block;width:100%;height:100%;object-fit:contain;background:#f7f8fa;transition:transform .18s ease}
       .publicImageThumb:hover img{transform:scale(1.025)}
       .publicImageThumb span{position:absolute;right:8px;bottom:8px;border-radius:999px;padding:5px 8px;background:#182234cc;color:#fff;font-size:10px;font-weight:900}
-      .imageLightbox{position:fixed;inset:0;z-index:9999;background:rgba(13,18,28,.92);display:grid;place-items:center;padding:46px 82px 58px;backdrop-filter:blur(6px)}
-      .lightboxStage{position:relative;width:min(1000px,84vw);height:min(74vh,760px);display:grid;place-items:center}
-      .lightboxStage img{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
-      .lightboxCount{position:absolute;left:50%;bottom:-28px;transform:translateX(-50%);color:#fff;font-size:12px;font-weight:800;background:#ffffff1a;border:1px solid #ffffff26;border-radius:999px;padding:5px 10px}
-      .lightboxClose,.lightboxNav{position:fixed;border:0;color:#fff;background:#ffffff1a;backdrop-filter:blur(6px);cursor:pointer}
+      .imageLightbox{position:fixed;inset:0;z-index:9999;background:rgba(13,18,28,.92);display:flex;align-items:center;justify-content:center;padding:64px 84px 72px;backdrop-filter:blur(6px)}
+      .lightboxStage{position:relative;width:min(900px,76vw);height:66vh;display:flex;align-items:center;justify-content:center}
+      .lightboxStage img{display:block;border-radius:10px;box-shadow:0 24px 80px rgba(0,0,0,.35)}
+      .lightboxCount{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);color:#fff;font-size:12px;font-weight:800;background:#ffffff1a;border:1px solid #ffffff26;border-radius:999px;padding:5px 10px}
+      .lightboxClose,.lightboxNav{position:fixed;border:0;color:#fff;background:#ffffff1a;backdrop-filter:blur(6px);cursor:pointer;z-index:2}
       .lightboxClose{right:18px;top:18px;width:44px;height:44px;border-radius:999px;font-size:30px;line-height:1}
       .lightboxNav{top:50%;transform:translateY(-50%);width:48px;height:70px;border-radius:16px;font-size:44px;line-height:1}.lightboxNav.prev{left:14px}.lightboxNav.next{right:14px}
-      @media(max-width:900px){.imageLightbox{padding:50px 58px 64px}.lightboxStage{width:min(860px,82vw);height:min(72vh,700px)}}
-      @media(max-width:640px){.publicImageGallery{grid-template-columns:repeat(2,minmax(0,1fr))}.publicImageThumb{height:118px}.imageLightbox{padding:58px 12px 70px}.lightboxStage{width:94vw;height:68vh}.lightboxNav{top:auto;bottom:10px;transform:none;width:60px;height:42px;font-size:30px}.lightboxNav.prev{left:calc(50% - 68px)}.lightboxNav.next{right:calc(50% - 68px)}}
+      @media(max-width:900px){.imageLightbox{padding:56px 54px 66px}.lightboxStage{width:78vw;height:64vh}.lightboxStage img{max-width:78vw!important;max-height:64vh!important}}
+      @media(max-width:640px){.publicImageGallery{grid-template-columns:repeat(2,minmax(0,1fr))}.publicImageThumb{height:118px}.imageLightbox{padding:54px 12px 70px}.lightboxStage{width:88vw;height:60vh}.lightboxStage img{max-width:88vw!important;max-height:60vh!important}.lightboxNav{top:auto;bottom:10px;transform:none;width:60px;height:42px;font-size:30px}.lightboxNav.prev{left:calc(50% - 68px)}.lightboxNav.next{right:calc(50% - 68px)}.lightboxCount{bottom:-32px}}
     `}</style>
   </>;
 }
