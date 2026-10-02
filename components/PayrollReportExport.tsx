@@ -16,7 +16,7 @@ export default function PayrollReportExport(props:{month:string;incomeItems:Mone
   const [copied,setCopied]=useState(false);
   async function copyLine(){const team=await getTeamBranding();await navigator.clipboard.writeText(buildText(props,teamDisplayName(team)));setCopied(true);setTimeout(()=>setCopied(false),1600);}
   async function exportImage(){
-    const team=await getTeamBranding();const logo=await loadBrandLogo(team?.logoDataUrl);const canvas=document.createElement('canvas');const ctx=canvas.getContext('2d');if(!ctx)return;
+    const team=await getTeamBranding();const logo=await loadBrandLogo(team?.logoDataUrl);const canvas=document.createElement('canvas');const context=canvas.getContext('2d');if(!context)return;const ctx:CanvasRenderingContext2D=context;
     const width=1080,pad=64,content=width-pad*2,staffH=190,gap=22;
     const incomeH=Math.max(150,90+props.incomeItems.length*42),expenseH=Math.max(150,90+props.expenseItems.length*42);
     canvas.width=width;canvas.height=360+incomeH+expenseH+props.staff.length*(staffH+gap)+240;
