@@ -3,6 +3,7 @@ import {redirect} from 'next/navigation';
 import {createClient} from '@/lib/supabase/server';
 import ConfirmSubmitButton from '@/components/ConfirmSubmitButton';
 import PublicShareActions from '@/components/PublicShareActions';
+import CompetitionPublicImageInput from '@/components/CompetitionPublicImageInput';
 import {createPublicAnnouncement,deletePublicAnnouncement,updateCompetitionPublicInfo,updatePublicAnnouncement} from './actions';
 
 type Search={message?:string;error?:string};
@@ -48,11 +49,11 @@ export default async function PublicContentPage({searchParams}:{searchParams:Pro
     </section>
 
     <section className="card"><div className="sectionTitle"><div><span>03</span><h2>比賽家長公開資訊</h2></div><strong>逐場設定</strong></div>
-      <div className="notice"><b>Phase 4：</b>除了集合資訊，也能放大會網址、官方簡章或宣傳圖，並直接複製 LINE 比賽通知。</div>
+      <div className="notice"><b>Phase 4：</b>除了集合資訊，也能放大會網址、官方簡章或直接上傳球衣／比賽圖片，再一鍵整理 LINE 通知。</div>
       <div className="competitionPublicList">{(competitions??[]).map(c=><form action={updateCompetitionPublicInfo} key={c.id} className="competitionPublicCard">
         <input type="hidden" name="competition_id" value={c.id}/>
         <div className="compHeading"><div><b>{c.name}</b><span>{c.start_date}{c.end_date&&c.end_date!==c.start_date?` ～ ${c.end_date}`:''}</span></div><label className="rosterToggle"><input type="checkbox" name="public_show_roster" defaultChecked={c.public_show_roster}/><span>公開參賽名單</span></label></div>
-        <div className="compFields"><label>集合時間<input name="public_meeting_time" defaultValue={c.public_meeting_time??''} placeholder="例如 07:20"/></label><label>集合地點<input name="public_meeting_place" defaultValue={c.public_meeting_place??''} placeholder="例如 活動中心門口"/></label><label>穿著<input name="public_clothing" defaultValue={c.public_clothing??''} placeholder="例如 球隊外套＋比賽服"/></label><label>大會／官方網址<input name="public_official_url" type="url" defaultValue={c.public_official_url??''} placeholder="https://…"/></label><label className="wide">比賽圖片網址<input name="public_image_url" type="url" defaultValue={c.public_image_url??''} placeholder="https://…（大會海報、官方圖片，可留空）"/></label><label className="wide">家長注意事項<textarea name="public_notes" rows={2} defaultValue={c.public_notes??''} placeholder="例如：請自備水壺、球拍與健保卡。"/></label></div>
+        <div className="compFields"><label>集合時間<input name="public_meeting_time" defaultValue={c.public_meeting_time??''} placeholder="例如 07:20"/></label><label>集合地點<input name="public_meeting_place" defaultValue={c.public_meeting_place??''} placeholder="例如 活動中心門口"/></label><label>穿著<input name="public_clothing" defaultValue={c.public_clothing??''} placeholder="例如 球隊外套＋比賽服"/></label><label>大會／官方網址<input name="public_official_url" type="url" defaultValue={c.public_official_url??''} placeholder="https://…"/></label><label className="wide">比賽圖片網址<input name="public_image_url" type="url" defaultValue={c.public_image_url?.startsWith('http')?c.public_image_url:''} placeholder="https://…（如果直接上傳照片，這格可留空）"/></label><div className="wide"><CompetitionPublicImageInput currentImage={c.public_image_url}/></div><label className="wide">家長注意事項<textarea name="public_notes" rows={2} defaultValue={c.public_notes??''} placeholder="例如：請自備水壺、球拍與健保卡。"/></label></div>
         <div className="compActionRow"><PublicShareActions label={c.name} text={`🏆 ${teamName}｜${c.name}\n📅 ${c.start_date}${c.end_date&&c.end_date!==c.start_date?`～${c.end_date}`:''}${c.location?`\n📍 ${c.location}`:''}${c.public_meeting_time?`\n🕐 集合 ${c.public_meeting_time}`:''}${c.public_meeting_place?`\n📍 集合地點 ${c.public_meeting_place}`:''}${c.public_clothing?`\n👕 ${c.public_clothing}`:''}${c.public_notes?`\n📌 ${c.public_notes}`:''}${c.public_official_url?`\n🌐 ${c.public_official_url}`:''}`} url={team?.public_slug?`https://table-tennis-system-v01.cramtabletennis.workers.dev/p/${team.public_slug}/competitions`:undefined}/><button className="secondaryButton saveComp">儲存這場公開資訊</button></div>
       </form>)}</div>
     </section>
