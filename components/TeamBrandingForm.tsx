@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -46,6 +47,6 @@ export default function TeamBrandingForm({team,canManage}:Props){
       <label>副標語<input value={tagline} onChange={e=>setTagline(e.target.value)} placeholder="例如：同心打球，一起成長" disabled={!canManage}/></label>
       <label className="wide">團隊 Logo<input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>onFile(e.target.files?.[0])} disabled={!canManage}/><small>PNG / JPG / WebP，450KB 內。檔案會先在瀏覽器轉換，再直接存入團隊品牌資料，避免頁面送出大檔造成錯誤。</small></label>
     </div>
-    {canManage?<div className="brandActions"><button type="button" className="secondaryButton" onClick={()=>setLogo('')} disabled={busy||!logo}>移除 Logo</button><button type="button" className="primaryButton" onClick={save} disabled={busy}>{busy?'儲存中…':'儲存團隊品牌'}</button></div>:null}
+    <div className="brandActions"><Link href="/settings/public" className="secondaryButton">家長／訪客公開設定</Link>{canManage?<><button type="button" className="secondaryButton" onClick={()=>setLogo('')} disabled={busy||!logo}>移除 Logo</button><button type="button" className="primaryButton" onClick={save} disabled={busy}>{busy?'儲存中…':'儲存團隊品牌'}</button></>:null}</div>
   </div>;
 }
