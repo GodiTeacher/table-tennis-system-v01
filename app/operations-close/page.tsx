@@ -69,17 +69,22 @@ export default async function OperationsClosePage({searchParams}:{searchParams:P
   const ruleMap=new Map(rules.filter(r=>r.staff_id).map(r=>[r.staff_id as string,r]));
   const byDate=new Map<string,Att[]>();for(const a of attendance){const list=byDate.get(a.attendance_date)??[];list.push(a);byDate.set(a.attendance_date,list)}
   const studentCountAt=(date:string,a:number,b:number)=>{let total=0;for(const x of byDate.get(date)??[]){const xs=tm(x.start_time),xe=tm(x.end_time);if(Math.min(b,xe)>Math.max(a,xs))total+=Number(x.attendee_count??0)}return total};
+
   const rawWeightMap=new Map<string,number>();
-  for(const w of works){const staffId=w.staff_id||'';const r=ruleMap.get(staffId);if(!staffId||r?.method!=='weighted_students')continue;const start=tm(w.start_time),end=tm(w.end_time);const points=new Set<number>([start,end]);for(const a of byDate.get(w.work_date)??[]){const s=Math.max(start,tm(a.start_time)),e=Math.min(end,tm(a.end_time));if(e>s){points.add(s);points.add(e)}}const p=[...points].sort((a,b)=>a-b);let raw=0;for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1];if(b>a)raw+=((b-a)/60)*studentCountAt(w.work_date,a,b)}rawWeightMap.set(staffId,(rawWeightMap.get(staffId)??0)+raw)}
-  const weightMap=new Map<string,number>();let fixedPayTotal=0;
-  for(const s of staff){const r=ruleMap.get(s.id);if(r?.method==='fixed_monthly')fixedPayTotal+=Math.max(0,Number(r.monthly_salary??0));else if(r?.method==='weighted_students')weightMap.set(s.id,(rawWeightMap.get(s.id)??0)*Math.max(0,Number(r.weight_multiplier??1)))}
+  for(const w of works){const staffId=w.staff_id||'';const multiplier=Math.max(0,Number(ruleMap.get(staffId)?.weight_multiplier??0));if(!staffId||multiplier<=0)continue;const start=tm(w.start_time),end=tm(w.end_time);const points=new Set<number>([start,end]);for(const a of byDate.get(w.work_date)??[]){const s=Math.max(start,tm(a.start_time)),e=Math.min(end,tm(a.end_time));if(e>s){points.add(s);points.add(e)}}const p=[...points].sort((a,b)=>a-b);let raw=0;for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1];if(b>a)raw+=((b-a)/60)*studentCountAt(w.work_date,a,b)}rawWeightMap.set(staffId,(rawWeightMap.get(staffId)??0)+raw)}
+
+  const fixedPayMap=new Map<string,number>();
+  const weightMap=new Map<string,number>();
+  let fixedPayTotal=0;
+  for(const s of staff){const r=ruleMap.get(s.id);const fixed=Math.max(0,Number(r?.monthly_salary??0));const multiplier=Math.max(0,Number(r?.weight_multiplier??0));fixedPayMap.set(s.id,fixed);fixedPayTotal+=fixed;if(multiplier>0)weightMap.set(s.id,(rawWeightMap.get(s.id)??0)*multiplier)}
   const totalWeight=[...weightMap.values()].reduce((a,b)=>a+b,0);
   const weightedPool=Math.max(0,income-operatingExpense-fixedPayTotal);
+  const weightedPayMap=new Map<string,number>();
   const payMap=new Map<string,number>();
-  for(const s of staff){const r=ruleMap.get(s.id);if(r?.method==='fixed_monthly')payMap.set(s.id,Math.max(0,Number(r.monthly_salary??0)));else if(r?.method==='weighted_students')payMap.set(s.id,totalWeight>0?weightedPool*(weightMap.get(s.id)??0)/totalWeight:0)}
+  for(const s of staff){const fixed=fixedPayMap.get(s.id)??0;const weighted=totalWeight>0?weightedPool*(weightMap.get(s.id)??0)/totalWeight:0;weightedPayMap.set(s.id,weighted);payMap.set(s.id,fixed+weighted)}
   const coachPayTotal=[...payMap.values()].reduce((a,b)=>a+b,0);
   const finalBalance=income-operatingExpense-coachPayTotal;
-  const reportStaff=staff.map(s=>{const r=ruleMap.get(s.id);const rawWeight=rawWeightMap.get(s.id)??0;const weight=weightMap.get(s.id)??0;return {name:s.display_name,method:r?.method??'weighted_students',pay:payMap.get(s.id)??0,rawWeight,weight,weightMultiplier:Number(r?.weight_multiplier??1),share:totalWeight>0?weight/totalWeight:0}});
+  const reportStaff=staff.map(s=>{const r=ruleMap.get(s.id);const rawWeight=rawWeightMap.get(s.id)??0;const weight=weightMap.get(s.id)??0;const fixedPay=fixedPayMap.get(s.id)??0;const weightedPay=weightedPayMap.get(s.id)??0;return {name:s.display_name,pay:payMap.get(s.id)??0,rawWeight,weight,weightMultiplier:Number(r?.weight_multiplier??0),share:totalWeight>0?weight/totalWeight:0,fixedPay,weightedPay}});
 
   const completeCount=[attendanceReady,airconReady,payrollReady,financeReady].filter(Boolean).length;
   const status=(ok:boolean)=>(ok?'✅ 已完成':'⏳ 待完成');
