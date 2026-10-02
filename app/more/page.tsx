@@ -1,23 +1,59 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 
-const MODULES = [
-  { title: '設定', desc: '選擇介面主題、查看學校／隊伍、管理帳號申請、帳號設定與登出。', status: '已可使用', href: '/settings' },
-  { title: '自訂訓練項目', desc: '在系統預設技能之外，建立隊伍自己的訓練項目並設定適用 A～F 程度。', status: '已可使用', href: '/training-items' },
-  { title: '出勤／時段設定', desc: '建立每週固定的年級／個人出席時間，日常直接套用後只修改請假與臨時例外；供冷氣與薪酬共同計算。', status: 'V1 已可使用', href: '/attendance-settings' },
-  { title: '冷氣度數／費用', desc: '登記實際冷氣開關時間與月電表，可切換依年級或依個人，依「人數 × 實際吹冷氣分鐘」自動分攤。', status: 'V2 已可使用', href: '/aircon' },
-  { title: '教練薪酬／財務月結', desc: '教練固定班表、每日實際出勤、三種計薪規則、營收與支出，並自動帶入教練薪酬與冷氣費。', status: 'V1 已可使用', href: '/payroll' },
-  { title: '球皮資料庫／庫存', desc: '維護球皮品牌、型號、厚度、顏色、庫存、成本與售價，供比賽換皮快速選用。', status: 'V2 已可使用', href: '/rubber-catalog' },
-  { title: '球皮庫存異動', desc: '記錄入庫、出庫、盤點與比賽領用；比賽已黏貼後自動扣庫存並保留學生歷史用皮。', status: 'V2 已可使用', href: '/rubber-inventory' },
-  { title: '球皮介紹', desc: '球皮類型、剖面、參數、價格範圍與世界前 10 選手器材。', status: '已可使用', href: '/rubber-guide' },
-  { title: '球板介紹', desc: '球板切面、內／外置纖維、握柄、整拍重量、球星案例與世界前 10 器材。', status: '已可使用', href: '/blade-guide' },
-  { title: '球皮／球板代工規則', desc: '代訂免費黏貼／裁切、自購代工費用、護邊與注意事項，並可複製家長公告。', status: '已可使用', href: '/service-rules' },
-  { title: '桌球職涯介紹', desc: '從國小校隊、競賽、升學到選手、教練、裁判、運動科學與桌球產業的發展路線。', status: 'V1 已可使用', href: '/career-guide' },
-  { title: '球隊規範', desc: '10 大類集中管理：隊員、比賽、收退費、月費請假、器材、接送、家長、點數、場地與冷氣。', status: 'V1 已可使用', href: '/team-standards' },
-  { title: '點數紀錄', desc: '教練自由新增加點／扣點，記錄原因、日期與備註；誤登紀錄可刪除並自動重算總分。', status: 'V1 已可使用', href: '/points' },
-  { title: '比賽倒數', desc: '同時查看未扣假日與扣除週末／自訂休假日後的倒數，距離越近顏色越醒目。', status: 'V1 已可使用', href: '/competition-countdown' },
-  { title: '比賽資訊＋接送', desc: '賽事日期、參賽名單、由教練協調接送車輛、座位與每位學生車資。', status: 'V2 已可使用', href: '/competitions' },
-  { title: '比賽球皮管理', desc: '直接綁定參賽名單，快速配置正反手球皮並彙整需求、庫存、訂貨與付款進度。', status: 'V2 已可使用', href: '/competition-rubbers' },
+const GROUPS = [
+  {
+    title: '球隊管理',
+    subtitle: '設定、訓練與球隊日常',
+    icon: '⚙',
+    items: [
+      { icon: '⚙', title: '系統設定', desc: '主題、學校隊伍、帳號與登出', href: '/settings' },
+      { icon: '⌁', title: '訓練項目', desc: '自訂隊伍訓練內容與程度', href: '/training-items' },
+      { icon: '★', title: '點數紀錄', desc: '加扣點、原因與學生總分', href: '/points' },
+      { icon: '✓', title: '球隊規範', desc: '隊員、收費、請假、器材與接送規則', href: '/team-standards' },
+    ],
+  },
+  {
+    title: '營運管理',
+    subtitle: '出勤、冷氣、薪酬與月結',
+    icon: '▦',
+    items: [
+      { icon: '●', title: '學生出勤', desc: '固定週模板、每日例外與時段人數', href: '/attendance-settings' },
+      { icon: '❄', title: '冷氣費用', desc: '電表、冷氣時段與月費群組分攤', href: '/aircon' },
+      { icon: '◎', title: '教練薪酬', desc: '出勤、收支、固定月薪與加權分配', href: '/payroll' },
+      { icon: '▤', title: '營運月結', desc: '整合檢查與 LINE／圖片月報', href: '/operations-close' },
+    ],
+  },
+  {
+    title: '器材管理',
+    subtitle: '球皮、庫存與代工',
+    icon: '◈',
+    items: [
+      { icon: '◉', title: '球皮資料庫', desc: '品牌、型號、厚度、庫存與售價', href: '/rubber-catalog' },
+      { icon: '↕', title: '庫存異動', desc: '入庫、出庫、盤點與比賽領用', href: '/rubber-inventory' },
+      { icon: '✂', title: '代工規則', desc: '黏貼、裁切、護邊與收費公告', href: '/service-rules' },
+      { icon: '◍', title: '比賽球皮', desc: '參賽名單換皮、庫存與訂貨', href: '/competition-rubbers' },
+    ],
+  },
+  {
+    title: '比賽工具',
+    subtitle: '賽程、名單、接送與倒數',
+    icon: '🏆',
+    items: [
+      { icon: '🏆', title: '比賽管理', desc: '賽事、參賽名單、接送與車資', href: '/competitions' },
+      { icon: '◷', title: '比賽倒數', desc: '比賽日期與休假日倒數', href: '/competition-countdown' },
+    ],
+  },
+  {
+    title: '桌球知識',
+    subtitle: '器材介紹與生涯資訊',
+    icon: 'i',
+    items: [
+      { icon: '◉', title: '球皮介紹', desc: '類型、參數、價格與選手器材', href: '/rubber-guide' },
+      { icon: '▱', title: '球板介紹', desc: '纖維結構、握柄、重量與案例', href: '/blade-guide' },
+      { icon: '↗', title: '桌球職涯', desc: '升學、選手、教練與產業路線', href: '/career-guide' },
+    ],
+  },
 ];
 
 const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
@@ -39,10 +75,37 @@ export default async function MorePage() {
       memberRole = membership?.member_role ?? '';
     }
   }
-  return <main className="shell">
-    <section className="hero compactHero"><div className="eyebrow">TABLE TENNIS SYSTEM V01</div><h1>更多功能</h1><p>整合器材、比賽、訓練、出勤、費用與設定；同一球隊工作區共享資料，不同工作區彼此隔離。</p><div className="topNav"><Link href="/today">今日訓練</Link><Link href="/students">學生管理</Link><Link href="/history">歷史訓練</Link><Link href="/competitions">比賽管理</Link><Link href="/settings">設定</Link></div></section>
-    <section className="card"><div className="sectionTitle"><div><span>01</span><h2>目前學校與隊伍</h2></div>{memberRole?<strong>{ROLE_TEXT[memberRole]??memberRole}</strong>:null}</div>{team?<div className="notice"><b>{team.school_name||'未設定學校'}</b>｜{team.sport_name||'未設定運動'}｜{team.name}<br/><span className="muted">學生、訓練、比賽、出勤、點數、冷氣與薪酬資料都屬於這個隊伍工作區。</span></div>:<div className="notice">目前尚未加入任何學校／隊伍。</div>}<div className="topNav" style={{marginTop:12}}><Link href="/settings">⚙️ 開啟設定</Link></div></section>
-    <section className="card"><div className="sectionTitle"><div><span>02</span><h2>功能 Roadmap</h2></div><strong>{MODULES.length} 個模組</strong></div><div className="moreModuleGrid">{MODULES.map(module=><Link className="moreModuleCard" href={module.href} key={module.title}><div className="moreModuleTop"><b>{module.title}</b><span>{module.status}</span></div><p>{module.desc}</p></Link>)}</div></section>
-    <section className="card"><div className="sectionTitle"><div><span>03</span><h2>目前進度</h2></div></div><div className="notice">目前已把「出勤時段」做成冷氣費與教練薪酬共用底層：固定週模板 → 每日例外 → 冷氣 V2 分攤 → 教練薪酬 → 財務月結，避免同一批時間與人數重複輸入。</div></section>
+
+  return <main className="shell moreShell">
+    <section className="moreHero">
+      <div><span className="moreEyebrow">MORE</span><h1>更多</h1><p>球隊管理、營運、器材、比賽與知識都集中在這裡。</p></div>
+      <Link href="/settings" className="roundSettings" aria-label="開啟設定">⚙</Link>
+    </section>
+
+    <section className="workspaceCard">
+      <div className="workspaceIcon">🏓</div>
+      <div className="workspaceText">
+        <span>目前工作區</span>
+        <b>{team ? `${team.school_name||'未設定學校'}｜${team.sport_name||'桌球'}｜${team.name}` : '尚未加入學校／隊伍'}</b>
+      </div>
+      {memberRole ? <span className="roleBadge">{ROLE_TEXT[memberRole]??memberRole}</span> : null}
+    </section>
+
+    <div className="moreGroups">
+      {GROUPS.map(group => <section className="moreGroup" key={group.title}>
+        <header className="groupHeader"><div className="groupIcon">{group.icon}</div><div><h2>{group.title}</h2><p>{group.subtitle}</p></div></header>
+        <div className="settingsList">
+          {group.items.map(item => <Link href={item.href} className="settingsRow" key={item.href}>
+            <span className="itemIcon">{item.icon}</span>
+            <span className="itemText"><b>{item.title}</b><small>{item.desc}</small></span>
+            <span className="chevron" aria-hidden="true">›</span>
+          </Link>)}
+        </div>
+      </section>)}
+    </div>
+
+    <style>{`
+      .moreShell{max-width:820px}.moreHero{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:14px 4px 18px}.moreEyebrow{font-size:11px;font-weight:900;letter-spacing:.18em;color:var(--theme-accent,#7c3aed)}.moreHero h1{margin:5px 0 3px;font-size:34px;line-height:1}.moreHero p{margin:0;color:#768191;font-size:13px}.roundSettings{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;background:#fff;border:1px solid #e4e8ed;box-shadow:0 7px 20px rgba(24,33,47,.08);text-decoration:none;color:#465266;font-size:18px}.workspaceCard{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:14px 16px;margin-bottom:18px;border-radius:18px;background:linear-gradient(135deg,var(--theme-soft,#f5f3ff),#fff);border:1px solid color-mix(in srgb,var(--theme-accent,#7c3aed) 18%,#e1e6ec)}.workspaceIcon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#fff;font-size:20px;box-shadow:0 5px 14px rgba(24,33,47,.06)}.workspaceText{min-width:0;display:flex;flex-direction:column;gap:2px}.workspaceText span{font-size:11px;color:#7b8696}.workspaceText b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.roleBadge{padding:6px 9px;border-radius:999px;background:#fff;color:#647083;font-size:10px;font-weight:900}.moreGroups{display:grid;gap:18px}.moreGroup{background:#fff;border:1px solid #e3e7ec;border-radius:22px;overflow:hidden;box-shadow:0 8px 28px rgba(24,33,47,.055)}.groupHeader{display:flex;gap:11px;align-items:center;padding:15px 16px 11px}.groupIcon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:var(--theme-soft,#f5f3ff);color:var(--theme-accent,#7c3aed);font-weight:900}.groupHeader h2{margin:0;font-size:16px}.groupHeader p{margin:2px 0 0;color:#8a94a3;font-size:11px}.settingsList{border-top:1px solid #eef1f4}.settingsRow{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:11px;align-items:center;padding:12px 15px;text-decoration:none;color:#263244;background:#fff;border-top:1px solid #f0f2f5;transition:.16s ease}.settingsRow:first-child{border-top:0}.settingsRow:visited{color:#263244}.itemIcon{width:34px;height:34px;border-radius:11px;display:grid;place-items:center;background:#f5f7f9;color:#687487;font-weight:900}.itemText{min-width:0;display:flex;flex-direction:column;gap:2px}.itemText b{font-size:14px;line-height:1.25}.itemText small{font-size:11px;color:#7d8898;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chevron{font-size:25px;line-height:1;color:#b2bac5}.settingsRow:active{background:#f7f8fa}@media(hover:hover){.settingsRow:hover{background:#f8f9fb}.settingsRow:hover .itemIcon{background:var(--theme-soft,#f5f3ff);color:var(--theme-accent,#7c3aed)}}@media(max-width:560px){.moreShell{padding-left:12px;padding-right:12px}.moreHero{padding-top:10px}.moreHero h1{font-size:30px}.workspaceCard{grid-template-columns:auto minmax(0,1fr)}.roleBadge{grid-column:2;justify-self:start}.moreGroup{border-radius:20px}.settingsRow{padding:12px 13px}.itemText small{font-size:10.5px}}
+    `}</style>
   </main>;
 }
