@@ -54,17 +54,25 @@ export async function updateCompetitionPublicInfo(formData:FormData){
   const official=cleanUrl(formData.get('public_official_url'));const imageUrl=cleanUrl(formData.get('public_image_url'));
   if(officialRaw&&!official)return fail('大會／官方網址格式不正確。');if(imageUrlRaw&&!imageUrl)return fail('比賽圖片網址格式不正確。');
 
-  const existingRaw=formData.getAll('public_image_existing');
-  const existingCleaned=existingRaw.map(cleanExistingImage);
-  if(existingCleaned.some((v,i)=>String(existingRaw[i]||'').trim()&&!v))return fail('既有圖片資料格式不正確。');
-  const existing=existingCleaned.filter((x):x is string=>Boolean(x));
+  const orderedRaw=formData.getAll('public_image_ordered');
+  let images:string[]=[];
+  if(orderedRaw.length){
+    const orderedCleaned=orderedRaw.map(cleanExistingImage);
+    if(orderedCleaned.some((v,i)=>String(orderedRaw[i]||'').trim()&&!v))return fail('其中一張圖片資料格式不正確或檔案過大。');
+    images=orderedCleaned.filter((x):x is string=>Boolean(x));
+  }else{
+    const existingRaw=formData.getAll('public_image_existing');
+    const existingCleaned=existingRaw.map(cleanExistingImage);
+    if(existingCleaned.some((v,i)=>String(existingRaw[i]||'').trim()&&!v))return fail('既有圖片資料格式不正確。');
+    const existing=existingCleaned.filter((x):x is string=>Boolean(x));
 
-  const addedRaw=formData.getAll('public_image_data');
-  const addedCleaned=addedRaw.map(cleanImageData);
-  if(addedCleaned.some((v,i)=>String(addedRaw[i]||'').trim()&&!v))return fail('其中一張上傳圖片格式不正確或檔案過大。');
-  const added=addedCleaned.filter((x):x is string=>Boolean(x));
+    const addedRaw=formData.getAll('public_image_data');
+    const addedCleaned=addedRaw.map(cleanImageData);
+    if(addedCleaned.some((v,i)=>String(addedRaw[i]||'').trim()&&!v))return fail('其中一張上傳圖片格式不正確或檔案過大。');
+    const added=addedCleaned.filter((x):x is string=>Boolean(x));
+    images=[...existing,...added];
+  }
 
-  const images=[...existing,...added];
   if(imageUrl)images.push(imageUrl);
   const uniqueImages=Array.from(new Set(images));
   if(uniqueImages.length>6)return fail('每場比賽最多可放 6 張圖片。');
