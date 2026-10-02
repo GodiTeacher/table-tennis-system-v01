@@ -12,7 +12,7 @@ const ITEMS = [
 
 export default function AppBottomNav() {
   const pathname = usePathname();
-  if (!pathname || pathname.startsWith('/login') || pathname.startsWith('/auth')) return null;
+  if (!pathname || pathname.startsWith('/login') || pathname.startsWith('/auth') || pathname.startsWith('/p/')) return null;
 
   return (
     <nav className="appBottomNav" aria-label="主要功能">
