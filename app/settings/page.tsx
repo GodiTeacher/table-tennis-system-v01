@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import LogoutButton from '@/components/LogoutButton';
 import { createClient } from '@/lib/supabase/server';
-import { setTheme } from './actions';
+import { saveTeamBranding, setTheme } from './actions';
 
 const THEMES = [
   { id: 'current', name: '目前配色', desc: '維持現在的灰白、深藍灰風格，最中性。', swatches: ['#273444', '#edf1f5', '#ffffff'] },
@@ -19,6 +19,16 @@ const THEMES = [
 
 const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理員', coach: '一般成員' };
 
+type TeamInfo = {
+  school_name: string | null;
+  sport_name: string | null;
+  name: string;
+  short_name: string | null;
+  logo_data_url: string | null;
+  brand_color: string | null;
+  tagline: string | null;
+};
+
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ message?: string; error?: string }> }) {
   const params = await searchParams;
   const supabase = await createClient();
@@ -31,18 +41,19 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     supabase.rpc('current_team_id'),
   ]);
 
-  let team: { school_name: string | null; sport_name: string | null; name: string } | null = null;
+  let team: TeamInfo | null = null;
   let memberRole = '';
   if (teamId) {
     const [{ data: teamData }, { data: membership }] = await Promise.all([
-      supabase.from('teams').select('school_name,sport_name,name').eq('id', teamId).single(),
+      supabase.from('teams').select('school_name,sport_name,name,short_name,logo_data_url,brand_color,tagline').eq('id', teamId).single(),
       supabase.from('team_members').select('member_role').eq('team_id', teamId).eq('user_id', user.id).single(),
     ]);
-    team = teamData ?? null;
+    team = (teamData as TeamInfo | null) ?? null;
     memberRole = membership?.member_role ?? '';
   }
 
   const canManageAccounts = Boolean(profile?.platform_admin || memberRole === 'owner' || memberRole === 'admin');
+  const canManageBranding = memberRole === 'owner' || memberRole === 'admin';
   const currentTheme = profile?.theme_preference ?? 'current';
 
   return (
@@ -50,7 +61,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       <section className="hero compactHero">
         <div className="eyebrow">SETTINGS</div>
         <h1>設定</h1>
-        <p>集中管理介面風格、帳號、隊伍資訊與登入狀態。</p>
+        <p>集中管理介面風格、團隊品牌、帳號、隊伍資訊與登入狀態。</p>
         <div className="topNav"><Link href="/more">← 返回更多</Link></div>
       </section>
 
@@ -72,8 +83,32 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         </div>
       </section>
 
+      {team ? <section className="card">
+        <div className="sectionTitle"><div><span>02</span><h2>團隊品牌</h2></div><strong>{canManageBranding ? '管理員可編輯' : '僅檢視'}</strong></div>
+        <p className="muted">Logo 與品牌資料會帶入冷氣費、教練薪酬、營運月結等匯出圖片。建議使用正方形透明 PNG。</p>
+        <form action={saveTeamBranding} className="brandForm">
+          <div className="brandLogoPanel">
+            <div className="brandLogoPreview" style={{ borderColor: team.brand_color || '#7c3aed' }}>
+              {team.logo_data_url ? <img src={team.logo_data_url} alt={`${team.name} Logo`} /> : <span>🏓</span>}
+            </div>
+            <div><b>{team.short_name || team.name}</b><small>{team.tagline || '尚未設定團隊標語'}</small></div>
+          </div>
+          <div className="brandFields">
+            <label>團隊名稱<input name="team_name" defaultValue={team.name} required disabled={!canManageBranding} /></label>
+            <label>團隊簡稱<input name="short_name" defaultValue={team.short_name ?? ''} placeholder="例如：管嶼桌球" disabled={!canManageBranding} /></label>
+            <label>品牌主題色<div className="colorField"><input type="color" name="brand_color" defaultValue={team.brand_color || '#7c3aed'} disabled={!canManageBranding} /><span>{team.brand_color || '#7c3aed'}</span></div></label>
+            <label>副標語<input name="tagline" defaultValue={team.tagline ?? ''} placeholder="例如：同心打球，一起成長" disabled={!canManageBranding} /></label>
+            <label className="wide">團隊 Logo<input type="file" name="logo" accept="image/png,image/jpeg,image/webp" disabled={!canManageBranding} /><small>PNG / JPG / WebP，建議 450KB 內。</small></label>
+          </div>
+          {canManageBranding ? <div className="brandActions">
+            {team.logo_data_url ? <label className="removeLogo"><input type="checkbox" name="remove_logo" value="1" /> 移除目前 Logo</label> : <span />}
+            <button className="primaryButton">儲存團隊品牌</button>
+          </div> : null}
+        </form>
+      </section> : null}
+
       <section className="card">
-        <div className="sectionTitle"><div><span>02</span><h2>目前帳號與隊伍</h2></div>{memberRole ? <strong>{ROLE_TEXT[memberRole] ?? memberRole}</strong> : null}</div>
+        <div className="sectionTitle"><div><span>03</span><h2>目前帳號與隊伍</h2></div>{memberRole ? <strong>{ROLE_TEXT[memberRole] ?? memberRole}</strong> : null}</div>
         <div className="notice">
           <b>{profile?.display_name || '未設定名稱'}</b><br />
           <span>{user.email}</span>
@@ -87,10 +122,14 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       </section>
 
       <section className="card">
-        <div className="sectionTitle"><div><span>03</span><h2>登入狀態</h2></div></div>
+        <div className="sectionTitle"><div><span>04</span><h2>登入狀態</h2></div></div>
         <p className="muted">使用共用裝置或離開球隊電腦時，建議登出帳號。</p>
         <LogoutButton />
       </section>
+
+      <style>{`
+        .brandForm{display:grid;gap:16px}.brandLogoPanel{display:flex;align-items:center;gap:14px;padding:14px;border-radius:18px;background:var(--theme-soft,#f5f3ff)}.brandLogoPreview{width:76px;height:76px;border-radius:22px;border:3px solid;display:grid;place-items:center;overflow:hidden;background:#fff;flex:none}.brandLogoPreview img{width:100%;height:100%;object-fit:contain}.brandLogoPreview span{font-size:34px}.brandLogoPanel div:last-child{display:flex;flex-direction:column;gap:4px}.brandLogoPanel b{font-size:18px}.brandLogoPanel small{color:#778294}.brandFields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.brandFields label{font-size:12px;font-weight:800;color:#647184}.brandFields input{width:100%;margin-top:6px;border:1px solid #dce2ea;border-radius:12px;padding:12px 13px;font:inherit;background:#fff}.brandFields .wide{grid-column:1/-1}.brandFields small{display:block;margin-top:5px;color:#8a94a2;font-weight:500}.colorField{display:grid;grid-template-columns:54px 1fr;gap:8px;align-items:center;margin-top:6px}.colorField input{height:42px;padding:4px;margin:0}.colorField span{padding:11px 12px;border-radius:12px;background:#f7f8fa;color:#566274}.brandActions{display:flex;justify-content:space-between;gap:12px;align-items:center}.removeLogo{font-size:13px;color:#8c4d53}.removeLogo input{margin-right:6px}@media(max-width:620px){.brandFields{grid-template-columns:1fr}.brandFields .wide{grid-column:auto}.brandActions{align-items:stretch;flex-direction:column}.brandActions .primaryButton{width:100%}}
+      `}</style>
     </main>
   );
 }
