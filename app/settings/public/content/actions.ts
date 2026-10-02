@@ -20,67 +20,42 @@ function cleanUrl(v:FormDataEntryValue|null){const s=String(v||'').trim();if(!s)
 function priority(v:FormDataEntryValue|null){const x=String(v||'normal');return ['normal','reminder','important'].includes(x)?x:'normal'}
 
 export async function createPublicAnnouncement(formData:FormData){
-  try{
-    const {supabase,teamId,userId}=await context();
-    const title=String(formData.get('title')||'').trim();
-    const body=String(formData.get('body')||'').trim();
-    if(!title||!body)return fail('公告標題與內容不可空白。');
-    const rawAttachment=String(formData.get('attachment_url')||'').trim();
-    const attachment=cleanUrl(formData.get('attachment_url'));
-    if(rawAttachment&&!attachment)return fail('圖片／附件連結必須是 http 或 https 網址。');
-    const {error}=await supabase.from('team_public_announcements').insert({
-      team_id:teamId,title,body,priority:priority(formData.get('priority')),attachment_url:attachment,
-      pinned:formData.get('pinned')==='on',active:true,
-      published_from:String(formData.get('published_from')||'')||null,
-      published_until:String(formData.get('published_until')||'')||null,created_by:userId
-    });
-    if(error)throw error;return done('公告已新增。');
-  }catch(e:any){return fail(e?.message||'新增公告失敗。')}
+  const {supabase,teamId,userId}=await context();
+  const title=String(formData.get('title')||'').trim();const body=String(formData.get('body')||'').trim();
+  if(!title||!body)return fail('公告標題與內容不可空白。');
+  const rawAttachment=String(formData.get('attachment_url')||'').trim();const attachment=cleanUrl(formData.get('attachment_url'));
+  if(rawAttachment&&!attachment)return fail('圖片／附件連結必須是 http 或 https 網址。');
+  const {error}=await supabase.from('team_public_announcements').insert({team_id:teamId,title,body,priority:priority(formData.get('priority')),attachment_url:attachment,pinned:formData.get('pinned')==='on',active:true,published_from:String(formData.get('published_from')||'')||null,published_until:String(formData.get('published_until')||'')||null,created_by:userId});
+  if(error)return fail(error.message||'新增公告失敗。');
+  done('公告已新增。');
 }
 
 export async function updatePublicAnnouncement(formData:FormData){
-  try{
-    const {supabase,teamId}=await context();
-    const id=String(formData.get('announcement_id')||'');
-    const title=String(formData.get('title')||'').trim();
-    const body=String(formData.get('body')||'').trim();
-    if(!id||!title||!body)return fail('公告資料不完整。');
-    const rawAttachment=String(formData.get('attachment_url')||'').trim();
-    const attachment=cleanUrl(formData.get('attachment_url'));
-    if(rawAttachment&&!attachment)return fail('圖片／附件連結必須是 http 或 https 網址。');
-    const {error}=await supabase.from('team_public_announcements').update({
-      title,body,priority:priority(formData.get('priority')),attachment_url:attachment,
-      pinned:formData.get('pinned')==='on',active:formData.get('active')==='on',
-      published_from:String(formData.get('published_from')||'')||null,
-      published_until:String(formData.get('published_until')||'')||null,
-      updated_at:new Date().toISOString()
-    }).eq('id',id).eq('team_id',teamId);
-    if(error)throw error;return done('公告已更新。');
-  }catch(e:any){return fail(e?.message||'更新公告失敗。')}
+  const {supabase,teamId}=await context();
+  const id=String(formData.get('announcement_id')||'');const title=String(formData.get('title')||'').trim();const body=String(formData.get('body')||'').trim();
+  if(!id||!title||!body)return fail('公告資料不完整。');
+  const rawAttachment=String(formData.get('attachment_url')||'').trim();const attachment=cleanUrl(formData.get('attachment_url'));
+  if(rawAttachment&&!attachment)return fail('圖片／附件連結必須是 http 或 https 網址。');
+  const {error}=await supabase.from('team_public_announcements').update({title,body,priority:priority(formData.get('priority')),attachment_url:attachment,pinned:formData.get('pinned')==='on',active:formData.get('active')==='on',published_from:String(formData.get('published_from')||'')||null,published_until:String(formData.get('published_until')||'')||null,updated_at:new Date().toISOString()}).eq('id',id).eq('team_id',teamId);
+  if(error)return fail(error.message||'更新公告失敗。');
+  done('公告已更新。');
 }
 
 export async function deletePublicAnnouncement(formData:FormData){
-  try{const {supabase,teamId}=await context();const id=String(formData.get('announcement_id')||'');if(!id)return fail('缺少公告編號。');const {error}=await supabase.from('team_public_announcements').delete().eq('id',id).eq('team_id',teamId);if(error)throw error;return done('公告已刪除。');}
-  catch(e:any){return fail(e?.message||'刪除公告失敗。')}
+  const {supabase,teamId}=await context();const id=String(formData.get('announcement_id')||'');if(!id)return fail('缺少公告編號。');
+  const {error}=await supabase.from('team_public_announcements').delete().eq('id',id).eq('team_id',teamId);if(error)return fail(error.message||'刪除公告失敗。');done('公告已刪除。');
 }
 
 export async function updateCompetitionPublicInfo(formData:FormData){
-  try{
-    const {supabase,teamId}=await context();
-    const id=String(formData.get('competition_id')||'');
-    if(!id)return fail('缺少比賽編號。');
-    const {error}=await supabase.from('competitions').update({
-      public_show_roster:formData.get('public_show_roster')==='on',
-      public_meeting_time:String(formData.get('public_meeting_time')||'').trim()||null,
-      public_meeting_place:String(formData.get('public_meeting_place')||'').trim()||null,
-      public_clothing:String(formData.get('public_clothing')||'').trim()||null,
-      public_notes:String(formData.get('public_notes')||'').trim()||null,
-    }).eq('id',id).eq('team_id',teamId);
-    if(error)throw error;return done('比賽家長公開資訊已更新。');
-  }catch(e:any){return fail(e?.message||'更新比賽公開設定失敗。')}
+  const {supabase,teamId}=await context();const id=String(formData.get('competition_id')||'');if(!id)return fail('缺少比賽編號。');
+  const officialRaw=String(formData.get('public_official_url')||'').trim();const imageRaw=String(formData.get('public_image_url')||'').trim();
+  const official=cleanUrl(formData.get('public_official_url'));const image=cleanUrl(formData.get('public_image_url'));
+  if(officialRaw&&!official)return fail('大會／官方網址格式不正確。');if(imageRaw&&!image)return fail('比賽圖片網址格式不正確。');
+  const {error}=await supabase.from('competitions').update({public_show_roster:formData.get('public_show_roster')==='on',public_meeting_time:String(formData.get('public_meeting_time')||'').trim()||null,public_meeting_place:String(formData.get('public_meeting_place')||'').trim()||null,public_clothing:String(formData.get('public_clothing')||'').trim()||null,public_notes:String(formData.get('public_notes')||'').trim()||null,public_official_url:official,public_image_url:image}).eq('id',id).eq('team_id',teamId);
+  if(error)return fail(error.message||'更新比賽公開設定失敗。');done('比賽家長公開資訊已更新。');
 }
 
 export async function toggleCompetitionRoster(formData:FormData){
-  try{const {supabase,teamId}=await context();const id=String(formData.get('competition_id')||'');if(!id)return fail('缺少比賽編號。');const enabled=formData.get('public_show_roster')==='on';const {error}=await supabase.from('competitions').update({public_show_roster:enabled}).eq('id',id).eq('team_id',teamId);if(error)throw error;return done(enabled?'已開放該比賽參賽名單。':'已關閉該比賽參賽名單。');}
-  catch(e:any){return fail(e?.message||'更新比賽公開設定失敗。')}
+  const {supabase,teamId}=await context();const id=String(formData.get('competition_id')||'');if(!id)return fail('缺少比賽編號。');const enabled=formData.get('public_show_roster')==='on';
+  const {error}=await supabase.from('competitions').update({public_show_roster:enabled}).eq('id',id).eq('team_id',teamId);if(error)return fail(error.message||'更新比賽公開設定失敗。');done(enabled?'已開放該比賽參賽名單。':'已關閉該比賽參賽名單。');
 }
