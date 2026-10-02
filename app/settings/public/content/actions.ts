@@ -18,7 +18,8 @@ function done(message:string):never{revalidatePath('/settings/public/content');r
 function fail(message:string):never{redirect(`/settings/public/content?error=${encodeURIComponent(message)}`)}
 function cleanUrl(v:FormDataEntryValue|null){const s=String(v||'').trim();if(!s)return null;try{const u=new URL(s);if(!['http:','https:'].includes(u.protocol))return null;return s}catch{return null}}
 function priority(v:FormDataEntryValue|null){const x=String(v||'normal');return ['normal','reminder','important'].includes(x)?x:'normal'}
-function cleanImageData(v:FormDataEntryValue|null){const s=String(v||'').trim();if(!s)return null;if(!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(s))return null;if(s.length>1_700_000)return null;return s}
+function cleanImageData(v:FormDataEntryValue|null){const s=String(v||'').trim();if(!s)return null;if(!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(s))return null;if(s.length>900_000)return null;return s}
+function cleanExistingImage(v:FormDataEntryValue){const s=String(v||'').trim();if(!s)return null;if(/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(s))return s.length<=1_700_000?s:null;return cleanUrl(v)}
 
 export async function createPublicAnnouncement(formData:FormData){
   const {supabase,teamId,userId}=await context();
@@ -49,15 +50,28 @@ export async function deletePublicAnnouncement(formData:FormData){
 
 export async function updateCompetitionPublicInfo(formData:FormData){
   const {supabase,teamId}=await context();const id=String(formData.get('competition_id')||'');if(!id)return fail('缺少比賽編號。');
-  const officialRaw=String(formData.get('public_official_url')||'').trim();const imageRaw=String(formData.get('public_image_url')||'').trim();const imageDataRaw=String(formData.get('public_image_data')||'').trim();
-  const official=cleanUrl(formData.get('public_official_url'));const imageUrl=cleanUrl(formData.get('public_image_url'));const imageData=cleanImageData(formData.get('public_image_data'));
-  if(officialRaw&&!official)return fail('大會／官方網址格式不正確。');if(imageRaw&&!imageUrl)return fail('比賽圖片網址格式不正確。');if(imageDataRaw&&!imageData)return fail('上傳圖片格式不正確或檔案過大。');
-  const {data:existing}=await supabase.from('competitions').select('public_image_url').eq('id',id).eq('team_id',teamId).single();
-  let image=existing?.public_image_url??null;
-  if(formData.get('clear_public_image')==='on')image=null;
-  if(imageUrl)image=imageUrl;
-  if(imageData)image=imageData;
-  const {error}=await supabase.from('competitions').update({public_show_roster:formData.get('public_show_roster')==='on',public_meeting_time:String(formData.get('public_meeting_time')||'').trim()||null,public_meeting_place:String(formData.get('public_meeting_place')||'').trim()||null,public_clothing:String(formData.get('public_clothing')||'').trim()||null,public_notes:String(formData.get('public_notes')||'').trim()||null,public_official_url:official,public_image_url:image}).eq('id',id).eq('team_id',teamId);
+  const officialRaw=String(formData.get('public_official_url')||'').trim();const imageUrlRaw=String(formData.get('public_image_url')||'').trim();
+  const official=cleanUrl(formData.get('public_official_url'));const imageUrl=cleanUrl(formData.get('public_image_url'));
+  if(officialRaw&&!official)return fail('大會／官方網址格式不正確。');if(imageUrlRaw&&!imageUrl)return fail('比賽圖片網址格式不正確。');
+
+  const existing=formData.getAll('public_image_existing').map(cleanExistingImage).filter((x):x is string=>Boolean(x));
+  const addedRaw=formData.getAll('public_image_data');
+  const added=addedRaw.map(cleanImageData).filter((x):x is string=>Boolean(x));
+  if(addedRaw.some((v,i)=>String(v||'').trim()&&!added[i]&&cleanImageData(v)===null))return fail('其中一張上傳圖片格式不正確或檔案過大。');
+  const images=[...existing,...added];
+  if(imageUrl)images.push(imageUrl);
+  const uniqueImages=Array.from(new Set(images)).slice(0,6);
+
+  const {error}=await supabase.from('competitions').update({
+    public_show_roster:formData.get('public_show_roster')==='on',
+    public_meeting_time:String(formData.get('public_meeting_time')||'').trim()||null,
+    public_meeting_place:String(formData.get('public_meeting_place')||'').trim()||null,
+    public_clothing:String(formData.get('public_clothing')||'').trim()||null,
+    public_notes:String(formData.get('public_notes')||'').trim()||null,
+    public_official_url:official,
+    public_image_urls:uniqueImages,
+    public_image_url:uniqueImages[0]||null,
+  }).eq('id',id).eq('team_id',teamId);
   if(error)return fail(error.message||'更新比賽公開設定失敗。');done('比賽家長公開資訊已更新。');
 }
 
