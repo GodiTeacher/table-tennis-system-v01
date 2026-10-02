@@ -7,6 +7,7 @@ import "./equipment-guide.css";
 import AppBottomNav from "@/components/AppBottomNav";
 import ThemeCookieBootstrap from "@/components/ThemeCookieBootstrap";
 import OperationsFlowNav from "@/components/OperationsFlowNav";
+import PublicParentNav from "@/components/PublicParentNav";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -42,6 +43,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         {shouldBootstrap ? <ThemeCookieBootstrap theme={theme} /> : null}
         <OperationsFlowNav />
         {children}
+        <PublicParentNav />
         <AppBottomNav />
       </body>
     </html>
