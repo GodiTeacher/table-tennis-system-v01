@@ -4,12 +4,13 @@ import {useMemo,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {createClient} from '@/lib/supabase/client';
 
-type Modules={competitions:boolean;countdown:boolean;standards:boolean;rubber_guide:boolean;blade_guide:boolean;career_guide:boolean;service_rules:boolean};
+type Modules={competitions:boolean;countdown:boolean;announcements:boolean;standards:boolean;rubber_guide:boolean;blade_guide:boolean;career_guide:boolean;service_rules:boolean};
 type Props={team:{public_enabled:boolean;public_slug:string|null;public_description:string|null;public_modules:Partial<Modules>|null};canManage:boolean};
 
 const ITEMS:[keyof Modules,string,string][]=[
-  ['competitions','比賽資訊','公開比賽名稱、日期、地點與備註'],
-  ['countdown','比賽倒數','在家長首頁顯示最近賽事倒數'],
+  ['competitions','比賽資訊','公開比賽名稱、日期、地點與截止日；參賽名單另行逐場控制'],
+  ['countdown','比賽倒數','在家長首頁顯示最近兩場賽事倒數'],
+  ['announcements','家長公告','顯示管理員發布、置頂與排程的公開公告'],
   ['standards','球隊規範','顯示家長版球隊規範摘要'],
   ['rubber_guide','球皮介紹','顯示球皮選擇與基礎知識入口'],
   ['blade_guide','球板介紹','顯示球板選擇與基礎知識入口'],
@@ -19,7 +20,7 @@ const ITEMS:[keyof Modules,string,string][]=[
 
 export default function PublicPortalSettingsForm({team,canManage}:Props){
   const router=useRouter();
-  const defaults=useMemo<Modules>(()=>({competitions:true,countdown:true,standards:true,rubber_guide:true,blade_guide:true,career_guide:true,service_rules:true,...(team.public_modules||{})}),[team.public_modules]);
+  const defaults=useMemo<Modules>(()=>({competitions:true,countdown:true,announcements:true,standards:true,rubber_guide:true,blade_guide:true,career_guide:true,service_rules:true,...(team.public_modules||{})}),[team.public_modules]);
   const [enabled,setEnabled]=useState(Boolean(team.public_enabled));
   const [slug,setSlug]=useState(team.public_slug||'');
   const [description,setDescription]=useState(team.public_description||'');
@@ -28,15 +29,7 @@ export default function PublicPortalSettingsForm({team,canManage}:Props){
   const [status,setStatus]=useState<{type:'ok'|'error';text:string}|null>(null);
   const publicPath=slug?`/p/${slug}`:'';
 
-  async function save(){
-    setBusy(true);setStatus(null);
-    try{
-      const supabase=createClient();
-      const {error}=await supabase.rpc('update_current_team_public_settings',{target_enabled:enabled,target_slug:slug,target_description:description,target_modules:modules});
-      if(error)throw error;
-      setStatus({type:'ok',text:'家長／訪客公開設定已更新。'});router.refresh();
-    }catch(e:any){setStatus({type:'error',text:e?.message||'儲存失敗，請稍後再試。'});}finally{setBusy(false);}
-  }
+  async function save(){setBusy(true);setStatus(null);try{const supabase=createClient();const {error}=await supabase.rpc('update_current_team_public_settings',{target_enabled:enabled,target_slug:slug,target_description:description,target_modules:modules});if(error)throw error;setStatus({type:'ok',text:'家長／訪客公開設定已更新。'});router.refresh();}catch(e:any){setStatus({type:'error',text:e?.message||'儲存失敗，請稍後再試。'});}finally{setBusy(false)}}
   async function copyLink(){if(!publicPath)return;const url=`${location.origin}${publicPath}`;await navigator.clipboard.writeText(url);setStatus({type:'ok',text:'家長公開網址已複製。'});}
 
   return <div className="publicSettings">
