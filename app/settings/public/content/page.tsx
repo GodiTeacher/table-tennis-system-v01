@@ -14,7 +14,7 @@ export default async function PublicContentPage({searchParams}:{searchParams:Pro
     supabase.from('team_members').select('member_role').eq('team_id',teamId).eq('user_id',u.user.id).single(),
     supabase.from('teams').select('public_slug,public_enabled,short_name,name').eq('id',teamId).single(),
     supabase.from('team_public_announcements').select('id,title,body,pinned,active,priority,attachment_url,published_from,published_until,created_at').eq('team_id',teamId).order('pinned',{ascending:false}).order('created_at',{ascending:false}),
-    supabase.from('competitions').select('id,name,start_date,end_date,status,location,public_show_roster,public_meeting_time,public_meeting_place,public_clothing,public_notes,public_official_url,public_image_url').eq('team_id',teamId).order('start_date',{ascending:false}).limit(20)
+    supabase.from('competitions').select('id,name,start_date,end_date,status,location,public_show_roster,public_meeting_time,public_meeting_place,public_clothing,public_notes,public_official_url,public_image_url,public_image_urls').eq('team_id',teamId).order('start_date',{ascending:false}).limit(20)
   ]);
   if(!member||!['owner','admin'].includes(member.member_role))redirect('/settings/public');
   const publicUrl=team?.public_slug?`/p/${team.public_slug}`:'';const teamName=team?.short_name||team?.name||'球隊';
@@ -49,13 +49,13 @@ export default async function PublicContentPage({searchParams}:{searchParams:Pro
     </section>
 
     <section className="card"><div className="sectionTitle"><div><span>03</span><h2>比賽家長公開資訊</h2></div><strong>逐場設定</strong></div>
-      <div className="notice"><b>Phase 4：</b>除了集合資訊，也能放大會網址、官方簡章或直接上傳球衣／比賽圖片，再一鍵整理 LINE 通知。</div>
-      <div className="competitionPublicList">{(competitions??[]).map(c=><form action={updateCompetitionPublicInfo} key={c.id} className="competitionPublicCard">
+      <div className="notice"><b>圖片：</b>每場比賽現在可上傳多張照片（最多 6 張）。家長頁會先顯示縮圖，點一下就能全螢幕放大查看。</div>
+      <div className="competitionPublicList">{(competitions??[]).map(c=>{const currentImages=(c.public_image_urls?.length?c.public_image_urls:(c.public_image_url?[c.public_image_url]:[])) as string[];return <form action={updateCompetitionPublicInfo} key={c.id} className="competitionPublicCard">
         <input type="hidden" name="competition_id" value={c.id}/>
         <div className="compHeading"><div><b>{c.name}</b><span>{c.start_date}{c.end_date&&c.end_date!==c.start_date?` ～ ${c.end_date}`:''}</span></div><label className="rosterToggle"><input type="checkbox" name="public_show_roster" defaultChecked={c.public_show_roster}/><span>公開參賽名單</span></label></div>
-        <div className="compFields"><label>集合時間<input name="public_meeting_time" defaultValue={c.public_meeting_time??''} placeholder="例如 07:20"/></label><label>集合地點<input name="public_meeting_place" defaultValue={c.public_meeting_place??''} placeholder="例如 活動中心門口"/></label><label>穿著<input name="public_clothing" defaultValue={c.public_clothing??''} placeholder="例如 球隊外套＋比賽服"/></label><label>大會／官方網址<input name="public_official_url" type="url" defaultValue={c.public_official_url??''} placeholder="https://…"/></label><label className="wide">比賽圖片網址<input name="public_image_url" type="url" defaultValue={c.public_image_url?.startsWith('http')?c.public_image_url:''} placeholder="https://…（如果直接上傳照片，這格可留空）"/></label><div className="wide"><CompetitionPublicImageInput currentImage={c.public_image_url}/></div><label className="wide">家長注意事項<textarea name="public_notes" rows={2} defaultValue={c.public_notes??''} placeholder="例如：請自備水壺、球拍與健保卡。"/></label></div>
+        <div className="compFields"><label>集合時間<input name="public_meeting_time" defaultValue={c.public_meeting_time??''} placeholder="例如 07:20"/></label><label>集合地點<input name="public_meeting_place" defaultValue={c.public_meeting_place??''} placeholder="例如 活動中心門口"/></label><label>穿著<input name="public_clothing" defaultValue={c.public_clothing??''} placeholder="例如 球隊外套＋比賽服"/></label><label>大會／官方網址<input name="public_official_url" type="url" defaultValue={c.public_official_url??''} placeholder="https://…"/></label><label className="wide">另外新增一張圖片網址<input name="public_image_url" type="url" placeholder="https://…（可留空；儲存後會加入圖片清單）"/></label><div className="wide"><CompetitionPublicImageInput currentImages={currentImages}/></div><label className="wide">家長注意事項<textarea name="public_notes" rows={2} defaultValue={c.public_notes??''} placeholder="例如：請自備水壺、球拍與健保卡。"/></label></div>
         <div className="compActionRow"><PublicShareActions label={c.name} text={`🏆 ${teamName}｜${c.name}\n📅 ${c.start_date}${c.end_date&&c.end_date!==c.start_date?`～${c.end_date}`:''}${c.location?`\n📍 ${c.location}`:''}${c.public_meeting_time?`\n🕐 集合 ${c.public_meeting_time}`:''}${c.public_meeting_place?`\n📍 集合地點 ${c.public_meeting_place}`:''}${c.public_clothing?`\n👕 ${c.public_clothing}`:''}${c.public_notes?`\n📌 ${c.public_notes}`:''}${c.public_official_url?`\n🌐 ${c.public_official_url}`:''}`} url={team?.public_slug?`https://table-tennis-system-v01.cramtabletennis.workers.dev/p/${team.public_slug}/competitions`:undefined}/><button className="secondaryButton saveComp">儲存這場公開資訊</button></div>
-      </form>)}</div>
+      </form>})}</div>
     </section>
 
     <style>{`
