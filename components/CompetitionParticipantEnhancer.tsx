@@ -64,11 +64,12 @@ export default function CompetitionParticipantEnhancer(){
         for(const [category,members] of sorted){
           const team=document.createElement('section');
           team.className='participantTeam';
-          const role=members.every(m=>m.participantRole==='reserve')?'reserve':'competitor';
           const date=members[0]?.date||'';
           const header=document.createElement('div');
           header.className='participantTeamHead';
-          header.innerHTML=`<div><strong>${category}</strong><small>${date} · ${members.length} 人</small></div><button type="button" class="secondaryButton" data-team-edit>編輯隊伍</button>`;
+          const competitorCount=members.filter(m=>m.participantRole==='competitor').length;
+          const reserveCount=members.filter(m=>m.participantRole==='reserve').length;
+          header.innerHTML=`<div><strong>${category}</strong><small>${date} · 參賽 ${competitorCount} 人${reserveCount?` · 後備 ${reserveCount} 人`:''}</small></div><button type="button" class="secondaryButton" data-team-edit>編輯隊伍</button>`;
           const body=document.createElement('div');body.className='participantTeamMembers';
 
           const roleOrder:Record<string,number>={competitor:0,reserve:1};
@@ -101,26 +102,61 @@ export default function CompetitionParticipantEnhancer(){
 
           qs<HTMLButtonElement>(header,'[data-team-edit]')?.addEventListener('click',()=>{
             if(team.querySelector('.participantTeamEditor'))return;
-            const selectedIds=new Set(members.map(m=>m.studentId).filter(Boolean));
+            const competitorIds=new Set(members.filter(m=>m.participantRole==='competitor').map(m=>m.studentId).filter(Boolean));
+            const reserveIds=new Set(members.filter(m=>m.participantRole==='reserve').map(m=>m.studentId).filter(Boolean));
             const editor=document.createElement('div');editor.className='participantTeamEditor';
             editor.innerHTML=`
-              <div class="teamEditorGrid">
+              <div class="teamEditorGrid compact">
                 <label>比賽日期<input type="date" data-field="competition_date" value="${date}" ${minDate?`min="${minDate}"`:''} ${maxDate?`max="${maxDate}"`:''}></label>
                 <label>組別名稱<input data-field="category" value="${category.replace(/"/g,'&quot;')}"></label>
-                <label>身分<select data-field="participant_role"><option value="competitor" ${role==='competitor'?'selected':''}>參賽</option><option value="reserve" ${role==='reserve'?'selected':''}>後備</option></select></label>
               </div>
-              <div class="teamEditorHint">隊員以勾選名單為準：取消勾選＝換下，勾選新學生＝換上。</div>
-              <div class="teamStudentPicker"></div>
+              <div class="teamEditorHint">參賽與後備分開編輯；同一位選手不能同時出現在兩邊。勾選另一邊時，系統會自動從原本那邊取消。</div>
+              <div class="dualRosterEditor">
+                <section class="rosterPicker competitorPicker">
+                  <div class="rosterPickerHead"><strong>參賽選手</strong><span data-count-competitor>${competitorIds.size} 人</span></div>
+                  <div class="teamStudentPicker" data-picker="competitor"></div>
+                </section>
+                <section class="rosterPicker reservePicker">
+                  <div class="rosterPickerHead"><strong>後備選手</strong><span data-count-reserve>${reserveIds.size} 人</span></div>
+                  <div class="teamStudentPicker" data-picker="reserve"></div>
+                </section>
+              </div>
               <div class="participantEditActions"><button type="button" class="primaryButton" data-team-save>儲存整隊</button><button type="button" class="secondaryButton" data-team-cancel>取消</button></div>
             `;
-            const picker=qs<HTMLElement>(editor,'.teamStudentPicker');
-            if(picker){
-              for(const student of catalog){
-                const label=document.createElement('label');
-                label.innerHTML=`<input type="checkbox" value="${student.id}" ${selectedIds.has(student.id)?'checked':''}><span><b>${student.name}</b><small>${student.meta}</small></span>`;
-                picker.appendChild(label);
-              }
+
+            const competitorPicker=qs<HTMLElement>(editor,'[data-picker="competitor"]');
+            const reservePicker=qs<HTMLElement>(editor,'[data-picker="reserve"]');
+            const countCompetitor=qs<HTMLElement>(editor,'[data-count-competitor]');
+            const countReserve=qs<HTMLElement>(editor,'[data-count-reserve]');
+
+            const updateCounts=()=>{
+              const c=editor.querySelectorAll<HTMLInputElement>('[data-picker="competitor"] input[type="checkbox"]:checked').length;
+              const r=editor.querySelectorAll<HTMLInputElement>('[data-picker="reserve"] input[type="checkbox"]:checked').length;
+              if(countCompetitor)countCompetitor.textContent=`${c} 人`;
+              if(countReserve)countReserve.textContent=`${r} 人`;
+            };
+
+            const makeStudentLabel=(student:{id:string;name:string;meta:string},role:'competitor'|'reserve')=>{
+              const label=document.createElement('label');
+              label.className=role==='competitor'?'competitorChoice':'reserveChoice';
+              const checked=role==='competitor'?competitorIds.has(student.id):reserveIds.has(student.id);
+              label.innerHTML=`<input type="checkbox" value="${student.id}" ${checked?'checked':''}><span><b>${student.name}</b><small>${student.meta}</small></span>`;
+              const box=label.querySelector('input') as HTMLInputElement;
+              box.addEventListener('change',()=>{
+                if(box.checked){
+                  const opposite=editor.querySelector<HTMLInputElement>(`[data-picker="${role==='competitor'?'reserve':'competitor'}"] input[value="${CSS.escape(student.id)}"]`);
+                  if(opposite)opposite.checked=false;
+                }
+                updateCounts();
+              });
+              return label;
+            };
+
+            for(const student of catalog){
+              competitorPicker?.appendChild(makeStudentLabel(student,'competitor'));
+              reservePicker?.appendChild(makeStudentLabel(student,'reserve'));
             }
+
             team.appendChild(editor);
             (header.querySelector('[data-team-edit]') as HTMLButtonElement).style.display='none';
             qs<HTMLButtonElement>(editor,'[data-team-cancel]')?.addEventListener('click',()=>{editor.remove();(header.querySelector('[data-team-edit]') as HTMLButtonElement).style.display='';});
@@ -128,11 +164,21 @@ export default function CompetitionParticipantEnhancer(){
               const save=qs<HTMLButtonElement>(editor,'[data-team-save]');if(!save)return;
               const newDate=(qs<HTMLInputElement>(editor,'[data-field="competition_date"]')?.value||'').trim();
               const newCategory=(qs<HTMLInputElement>(editor,'[data-field="category"]')?.value||'').trim();
-              const newRole=qs<HTMLSelectElement>(editor,'[data-field="participant_role"]')?.value||'competitor';
-              const newStudents=Array.from(editor.querySelectorAll<HTMLInputElement>('.teamStudentPicker input[type="checkbox"]:checked')).map(x=>x.value);
-              if(!newDate||!newCategory||!newStudents.length){alert('請確認比賽日期、組別名稱，並至少保留一位隊員');return;}
+              const newCompetitors=Array.from(editor.querySelectorAll<HTMLInputElement>('[data-picker="competitor"] input[type="checkbox"]:checked')).map(x=>x.value);
+              const newReserves=Array.from(editor.querySelectorAll<HTMLInputElement>('[data-picker="reserve"] input[type="checkbox"]:checked')).map(x=>x.value);
+              const overlap=newCompetitors.filter(id=>newReserves.includes(id));
+              if(!newDate||!newCategory||(!newCompetitors.length&&!newReserves.length)){alert('請確認比賽日期、組別名稱，並至少保留一位參賽或後備選手');return;}
+              if(overlap.length){alert('同一位選手不能同時設定為參賽與後備');return;}
               save.disabled=true;save.textContent='儲存中…';
-              const fd=new FormData();fd.set('intent','update_team');fd.set('competition_id',competitionId);fd.set('old_competition_date',date);fd.set('old_category',category);fd.set('competition_date',newDate);fd.set('category',newCategory);fd.set('participant_role',newRole);newStudents.forEach(id=>fd.append('student_ids',id));
+              const fd=new FormData();
+              fd.set('intent','update_team');
+              fd.set('competition_id',competitionId);
+              fd.set('old_competition_date',date);
+              fd.set('old_category',category);
+              fd.set('competition_date',newDate);
+              fd.set('category',newCategory);
+              newCompetitors.forEach(id=>fd.append('competitor_student_ids',id));
+              newReserves.forEach(id=>fd.append('reserve_student_ids',id));
               try{
                 const res=await fetch('/api/competition-participants',{method:'POST',body:fd});const data=await res.json();
                 if(!res.ok||!data.ok)throw new Error(data.error||'儲存失敗');
@@ -165,7 +211,7 @@ export default function CompetitionParticipantEnhancer(){
     [100,300,700,1500].forEach(ms=>window.setTimeout(init,ms));
 
     const style=document.createElement('style');style.dataset.participantEnhancer='1';style.textContent=`
-      #participants{scroll-margin-top:18px}.participantList{display:grid;gap:12px}.participantTeam{border:1px solid var(--theme-border,#dfe4eb);border-radius:16px;background:color-mix(in srgb,var(--theme-soft,#f7f4ff) 45%,white);overflow:hidden}.participantTeamHead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--theme-border,#e5e7eb)}.participantTeamHead>div{display:grid;gap:3px}.participantTeamHead strong{font-size:14px}.participantTeamHead small{font-size:11px;color:#778196}.participantTeamMembers{display:grid;gap:8px;padding:10px}.participantTeamMembers>.participant{margin:0}.participantRoleDivider{margin:2px 0 0;padding:5px 9px;border-radius:999px;width:max-content;font-size:10px;font-weight:900;letter-spacing:.05em}.participantRoleDivider.competitor{background:#e8f7ef;color:#127a47}.participantRoleDivider.reserve{background:#fff1dc;color:#a75a05}.participantCompetitor{border-color:#cfeadb!important;background:#f8fffb!important}.participantReserve{border-color:#f3dfbd!important;background:#fffaf2!important}.participantRoleBadgeCompetitor{background:#e8f7ef!important;color:#127a47!important;border:1px solid #c8ead6!important}.participantRoleBadgeReserve{background:#fff1dc!important;color:#a75a05!important;border:1px solid #f2d5aa!important}.participantTeamEditor{padding:14px;border-top:1px solid var(--theme-border,#e5e7eb);background:#fff}.teamEditorGrid{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px}.teamEditorGrid label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#687386}.teamEditorGrid input,.teamEditorGrid select{width:100%;padding:9px 10px;border:1px solid #dfe4eb;border-radius:10px;background:#fff;color:#172033;font:inherit}.teamEditorHint{margin:12px 0 8px;padding:9px 10px;border-radius:10px;background:var(--theme-soft,#f7f4ff);font-size:11px;color:#667085}.teamStudentPicker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:280px;overflow:auto}.teamStudentPicker label{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid #e6e9ef;border-radius:11px;cursor:pointer}.teamStudentPicker span{display:grid}.teamStudentPicker b{font-size:12px}.teamStudentPicker small{font-size:10px;color:#8791a1}.participantEditActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}@media(max-width:700px){.teamEditorGrid,.teamStudentPicker{grid-template-columns:1fr}.participantTeamHead{align-items:flex-start}.participantTeamHead button{white-space:nowrap}}
+      #participants{scroll-margin-top:18px}.participantList{display:grid;gap:12px}.participantTeam{border:1px solid var(--theme-border,#dfe4eb);border-radius:16px;background:color-mix(in srgb,var(--theme-soft,#f7f4ff) 45%,white);overflow:hidden}.participantTeamHead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--theme-border,#e5e7eb)}.participantTeamHead>div{display:grid;gap:3px}.participantTeamHead strong{font-size:14px}.participantTeamHead small{font-size:11px;color:#778196}.participantTeamMembers{display:grid;gap:8px;padding:10px}.participantTeamMembers>.participant{margin:0}.participantRoleDivider{margin:2px 0 0;padding:5px 9px;border-radius:999px;width:max-content;font-size:10px;font-weight:900;letter-spacing:.05em}.participantRoleDivider.competitor{background:#e8f7ef;color:#127a47}.participantRoleDivider.reserve{background:#fff1dc;color:#a75a05}.participantCompetitor{border-color:#cfeadb!important;background:#f8fffb!important}.participantReserve{border-color:#f3dfbd!important;background:#fffaf2!important}.participantRoleBadgeCompetitor{background:#e8f7ef!important;color:#127a47!important;border:1px solid #c8ead6!important}.participantRoleBadgeReserve{background:#fff1dc!important;color:#a75a05!important;border:1px solid #f2d5aa!important}.participantTeamEditor{padding:14px;border-top:1px solid var(--theme-border,#e5e7eb);background:#fff}.teamEditorGrid{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px}.teamEditorGrid.compact{grid-template-columns:1fr 1.5fr}.teamEditorGrid label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#687386}.teamEditorGrid input,.teamEditorGrid select{width:100%;padding:9px 10px;border:1px solid #dfe4eb;border-radius:10px;background:#fff;color:#172033;font:inherit}.teamEditorHint{margin:12px 0 10px;padding:9px 10px;border-radius:10px;background:var(--theme-soft,#f7f4ff);font-size:11px;color:#667085}.dualRosterEditor{display:grid;grid-template-columns:1fr 1fr;gap:12px}.rosterPicker{border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;background:#fff}.rosterPicker.competitorPicker{border-color:#cfeadb}.rosterPicker.reservePicker{border-color:#f3dfbd}.rosterPickerHead{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;font-size:12px}.competitorPicker .rosterPickerHead{background:#eefaf3;color:#127a47}.reservePicker .rosterPickerHead{background:#fff6e7;color:#a75a05}.rosterPickerHead span{font-size:10px;font-weight:900}.teamStudentPicker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;max-height:320px;overflow:auto;padding:10px}.teamStudentPicker label{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid #e6e9ef;border-radius:11px;cursor:pointer}.teamStudentPicker label.competitorChoice:has(input:checked){background:#f2fbf6;border-color:#bfe4cf}.teamStudentPicker label.reserveChoice:has(input:checked){background:#fff8ec;border-color:#efcf9c}.teamStudentPicker span{display:grid}.teamStudentPicker b{font-size:12px}.teamStudentPicker small{font-size:10px;color:#8791a1}.participantEditActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}@media(max-width:850px){.dualRosterEditor{grid-template-columns:1fr}.teamStudentPicker{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:700px){.teamEditorGrid,.teamEditorGrid.compact,.teamStudentPicker{grid-template-columns:1fr}.participantTeamHead{align-items:flex-start}.participantTeamHead button{white-space:nowrap}}
     `;document.head.appendChild(style);
     return()=>{stopped=true;observer?.disconnect();style.remove();};
   },[]);
