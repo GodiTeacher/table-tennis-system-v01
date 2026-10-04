@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { Suspense } from "react";
 import "./globals.css";
 import "./app-shell.css";
 import "./themes.css";
@@ -9,6 +10,7 @@ import ThemeCookieBootstrap from "@/components/ThemeCookieBootstrap";
 import OperationsFlowNav from "@/components/OperationsFlowNav";
 import PublicParentNav from "@/components/PublicParentNav";
 import HydrationStabilizer from "@/components/HydrationStabilizer";
+import ScrollPositionKeeper from "@/components/ScrollPositionKeeper";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -42,6 +44,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <html lang="zh-Hant">
       <body className={`theme-${theme}`} data-hydrating="true">
         <HydrationStabilizer />
+        <Suspense fallback={null}><ScrollPositionKeeper /></Suspense>
         {shouldBootstrap ? <ThemeCookieBootstrap theme={theme} /> : null}
         <OperationsFlowNav />
         {children}
