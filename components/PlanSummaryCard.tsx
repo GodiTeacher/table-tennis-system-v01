@@ -18,7 +18,7 @@ export default function PlanSummaryCard({
     : studentLimit!==null?`最多 ${studentLimit} 位學生`:'學生人數不限';
   const historyText=entitlements.training_history_months===null?'訓練紀錄永久保留':`訓練紀錄最近 ${entitlements.training_history_months} 個月`;
   const pdfText=entitlements.pdf_level==='custom'?'自訂 PDF':'基本 PDF 模板';
-  const ocrText=entitlements.monthly_ocr_imports===null?'OCR 不限額':'OCR 每月 '+entitlements.monthly_ocr_imports+' 次';
+  const ocrText=entitlements.monthly_ocr_imports===null?'照片文字辨識不限次數':`照片文字辨識每月 ${entitlements.monthly_ocr_imports} 次`;
 
   return <section className={`planSummaryCard ${isPro?'planPro':'planFree'} ${compact?'compact':''}`}>
     <div className="planSummaryTop">
