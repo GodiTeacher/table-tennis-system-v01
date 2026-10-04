@@ -66,11 +66,37 @@ export async function addCompetitionParticipants(formData: FormData) {
 }
 
 export async function removeCompetitionParticipant(formData: FormData) {
-  const competitionId = String(formData.get('competition_id') ?? '');
-  const participantId = String(formData.get('participant_id') ?? '');
+  const competitionId = String(formData.get('competition_id') ?? '').trim();
+  const participantId = String(formData.get('participant_id') ?? '').trim();
+  if (!competitionId || !participantId) {
+    if (competitionId) goError(competitionId, '缺少要移除的參賽名單資料，請重新整理頁面後再試。');
+    redirect('/competitions');
+  }
+
   const { supabase } = await getCoach();
-  await supabase.from('competition_participants').delete().eq('id', participantId).eq('competition_id', competitionId);
+  const { data: participant, error: lookupError } = await supabase
+    .from('competition_participants')
+    .select('id')
+    .eq('id', participantId)
+    .eq('competition_id', competitionId)
+    .maybeSingle();
+
+  if (lookupError) goError(competitionId, `讀取參賽資料失敗：${lookupError.message}`);
+
+  // The row may already have been removed by a previous click / stale render.
+  // Treat that as success instead of throwing an error page.
+  if (participant) {
+    const { error: deleteError } = await supabase
+      .from('competition_participants')
+      .delete()
+      .eq('id', participantId)
+      .eq('competition_id', competitionId);
+    if (deleteError) goError(competitionId, `移除參賽學生失敗：${deleteError.message}`);
+  }
+
+  revalidatePath('/competitions');
   revalidatePath(`/competitions/${competitionId}`);
+  redirect(`/competitions/${competitionId}?participant_removed=1`);
 }
 
 export async function createTransportVehicle(formData: FormData) {
