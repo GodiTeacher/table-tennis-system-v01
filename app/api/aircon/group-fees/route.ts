@@ -15,6 +15,7 @@ export async function GET(req:NextRequest){
   if(!/^\d{4}-\d{2}$/.test(month))return NextResponse.json({error:'月份格式錯誤'},{status:400});
   const monthStart=`${month}-01`;const d=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),1);const nextMonth=`${d.getFullYear()}-${pad(d.getMonth()+1)}-01`;
   const supabase=await createClient();const {data:claims}=await supabase.auth.getClaims();if(!claims?.claims?.sub)return NextResponse.json({error:'未登入'},{status:401});const {data:teamId}=await supabase.rpc('current_team_id');if(!teamId)return NextResponse.json({error:'找不到球隊'},{status:400});
+  const {data:allowed}=await supabase.rpc('team_can_use',{target_team:teamId,feature_key:'finance'});if(!allowed)return NextResponse.json({error:'此功能為菁英版功能，請先升級方案。',code:'PRO_REQUIRED'},{status:403});
   const [{data:meter},{data:runs},{data:attendance},{data:groups},{data:settings}]=await Promise.all([
     supabase.from('aircon_meter_records').select('opening_reading,closing_reading,rate_per_unit,fixed_fee').eq('team_id',teamId).eq('record_month',monthStart).maybeSingle(),
     supabase.from('aircon_runs').select('usage_date,start_time,end_time').eq('team_id',teamId).gte('usage_date',monthStart).lt('usage_date',nextMonth),
