@@ -11,6 +11,8 @@ async function getCoachContext(){
   return {supabase};
 }
 
+const conflictMessage=(message:string)=>message.includes('duplicate')||message.includes('unique')?'同一位學生在這一天的相同組別已經存在':message;
+
 export async function POST(request:Request){
   const ctx=await getCoachContext();
   if('error' in ctx) return ctx.error;
@@ -19,6 +21,66 @@ export async function POST(request:Request){
   const intent=String(formData.get('intent')??'add');
   const competitionId=String(formData.get('competition_id')??'').trim();
   if(!competitionId) return NextResponse.json({ok:false,error:'缺少比賽資料'},{status:400});
+
+  if(intent==='update_team'){
+    const oldDate=String(formData.get('old_competition_date')??'').trim();
+    const oldCategory=String(formData.get('old_category')??'').trim();
+    const competitionDate=String(formData.get('competition_date')??'').trim();
+    const category=String(formData.get('category')??'').trim();
+    const participantRole=String(formData.get('participant_role')??'competitor');
+    const studentIds=[...new Set(formData.getAll('student_ids').map(String).filter(Boolean))];
+    if(!oldDate||!oldCategory||!competitionDate||!category||!studentIds.length||!['competitor','reserve'].includes(participantRole)){
+      return NextResponse.json({ok:false,error:'請確認隊伍日期、組別、身分與至少一位隊員'},{status:400});
+    }
+
+    const {data:oldRows,error:oldError}=await supabase
+      .from('competition_participants')
+      .select('id,student_id')
+      .eq('competition_id',competitionId)
+      .eq('competition_date',oldDate)
+      .eq('category',oldCategory);
+    if(oldError) return NextResponse.json({ok:false,error:oldError.message},{status:500});
+    if(!oldRows?.length) return NextResponse.json({ok:false,error:'找不到這個隊伍，請重新整理後再試'},{status:404});
+
+    const oldIds=new Set(oldRows.map((r:any)=>String(r.id)));
+    const oldByStudent=new Map(oldRows.map((r:any)=>[String(r.student_id),String(r.id)]));
+
+    const {data:targetRows,error:targetError}=await supabase
+      .from('competition_participants')
+      .select('id,student_id')
+      .eq('competition_id',competitionId)
+      .eq('competition_date',competitionDate)
+      .eq('category',category)
+      .in('student_id',studentIds);
+    if(targetError) return NextResponse.json({ok:false,error:targetError.message},{status:500});
+    const outsideConflict=(targetRows??[]).find((r:any)=>!oldIds.has(String(r.id)));
+    if(outsideConflict) return NextResponse.json({ok:false,error:'有勾選的學生已存在於目標日期與組別，請先確認名單'},{status:409});
+
+    const retainedIds=studentIds.map(id=>oldByStudent.get(id)).filter(Boolean) as string[];
+    const addedIds=studentIds.filter(id=>!oldByStudent.has(id));
+    const removedRowIds=oldRows.filter((r:any)=>!studentIds.includes(String(r.student_id))).map((r:any)=>String(r.id));
+
+    if(retainedIds.length){
+      const {error}=await supabase.from('competition_participants')
+        .update({competition_date:competitionDate,category,participant_role:participantRole})
+        .eq('competition_id',competitionId)
+        .in('id',retainedIds);
+      if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
+    }
+
+    if(addedIds.length){
+      const rows=addedIds.map(studentId=>({competition_id:competitionId,student_id:studentId,competition_date:competitionDate,category,participant_role:participantRole}));
+      const {error}=await supabase.from('competition_participants').insert(rows);
+      if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
+    }
+
+    if(removedRowIds.length){
+      const {error}=await supabase.from('competition_participants').delete().eq('competition_id',competitionId).in('id',removedRowIds);
+      if(error) return NextResponse.json({ok:false,error:error.message},{status:500});
+    }
+
+    return NextResponse.json({ok:true,updated:retainedIds.length,added:addedIds.length,removed:removedRowIds.length});
+  }
 
   if(intent==='update'){
     const participantId=String(formData.get('participant_id')??'').trim();
@@ -32,10 +94,7 @@ export async function POST(request:Request){
     if(lookupError) return NextResponse.json({ok:false,error:lookupError.message},{status:500});
     if(!row) return NextResponse.json({ok:false,error:'找不到這筆參賽資料，請重新整理頁面'},{status:404});
     const {error}=await supabase.from('competition_participants').update({competition_date:competitionDate,category,participant_role:participantRole}).eq('id',participantId).eq('competition_id',competitionId);
-    if(error){
-      const msg=String(error.message||'');
-      return NextResponse.json({ok:false,error:msg.includes('duplicate')||msg.includes('unique')?'同一位學生在這一天的相同組別已經存在':msg},{status:409});
-    }
+    if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
     return NextResponse.json({ok:true,updated:1});
   }
 
@@ -63,8 +122,6 @@ export async function POST(request:Request){
     if(error){
       const msg=String(error.message||'');
       if(!(msg.includes('duplicate')||msg.includes('unique'))) return NextResponse.json({ok:false,error:msg},{status:500});
-      // A near-simultaneous submit may have inserted a row after the pre-check.
-      // Return a stable success response instead of surfacing a transient error page.
       return NextResponse.json({ok:true,added:0,skipped:studentIds.length});
     }
   }
