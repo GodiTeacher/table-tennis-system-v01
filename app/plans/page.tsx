@@ -4,7 +4,7 @@ import {getCurrentTeamEntitlements} from '@/lib/subscription-server';
 
 const rows=[
   ['學生名單','20 位','大量／不限'],
-  ['拍照 OCR 匯入','每月 5 次','高額度／不限'],
+  ['拍照辨識學生名單','每月 5 次','高額度／不限'],
   ['今日快速點名','✓','✓'],
   ['簡易課表','✓','✓'],
   ['訓練紀錄','最近 2 個月','完整歷史'],
@@ -38,7 +38,7 @@ export default async function PlansPage({searchParams}:{searchParams:Promise<{lo
     <section className="hero compactHero"><div className="eyebrow">PLANS</div><h1>方案與功能</h1><p>免費版先把每天最常用的工作做到比紙本與 Excel 更快；需要更大容量與完整營運功能時再升級。</p><div className="topNav"><Link href="/more">返回更多</Link><Link href="/students">學生名單</Link></div></section>
     {locked&&current==='free'?<section className="lockedNotice"><div><span>🔒 PRO</span><h2>{locked}屬於菁英版功能</h2><p>你的資料不會遺失；升級後即可直接使用這項功能。</p></div><Link href="/more">先返回免費功能</Link></section>:null}
     <div className="planCards">
-      <section className={`planCard ${current==='free'?'current':''}`}><span className="mini">FREE</span><h2>免費版</h2><p>適合個人教練、小班與剛開始數位化的球隊。</p><b>核心體驗完整</b><ul><li>20 位學生</li><li>訓練紀錄最近 2 個月</li><li>每月 5 次 OCR</li><li>基本 PDF 模板</li></ul>{current==='free'?<strong className="currentMark">目前方案</strong>:null}</section>
+      <section className={`planCard ${current==='free'?'current':''}`}><span className="mini">FREE</span><h2>免費版</h2><p>適合個人教練、小班與剛開始數位化的球隊。</p><b>核心體驗完整</b><ul><li>20 位學生</li><li>訓練紀錄最近 2 個月</li><li>每月 5 次拍照辨識學生名單</li><li>基本 PDF 模板</li></ul>{current==='free'?<strong className="currentMark">目前方案</strong>:null}</section>
       <section className={`planCard pro ${current==='pro'?'current':''}`}><span className="mini">PRO</span><h2>菁英版</h2><p>適合正式校隊、俱樂部與需要完整營運管理的教練。</p><b>完整管理與分析</b><ul><li>更多／不限學生</li><li>完整訓練歷史</li><li>進階比賽、財務、薪酬</li><li>自訂 PDF 與分析</li></ul>{current==='pro'?<strong className="currentMark">目前方案</strong>:<strong className="coming">升級功能開發中</strong>}</section>
     </div>
     <section className="card"><div className="sectionTitle"><div><span>COMPARE</span><h2>功能比較</h2></div></div><div className="planTableWrap"><table className="planTable"><thead><tr><th>功能</th><th>免費版</th><th>菁英版</th></tr></thead><tbody>{rows.map(row=><tr key={row[0]}><td>{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>)}</tbody></table></div></section>
