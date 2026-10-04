@@ -39,5 +39,26 @@ export async function applyCoachTemplatesToDate(formData:FormData){const {supaba
 export async function applyCoachTemplatesToMonth(formData:FormData){const {supabase,teamId}=await ctx();const month=String(formData.get('month')??'').slice(0,7);if(!/^\d{4}-\d{2}$/.test(month))redirect('/payroll?error='+enc('請選月份。'));const {start,next,y,m}=bounds(month);const {data:templates,error}=await supabase.from('coach_schedule_templates').select('staff_id,coach_user_id,weekday,start_time,end_time,note').eq('team_id',teamId).eq('active',true);if(error)redirect(`/payroll?month=${month}&error=${enc(error.message)}`);const rows:any[]=[];const lastDay=new Date(y,m,0).getDate();for(let d=1;d<=lastDay;d++){const date=`${month}-${String(d).padStart(2,'0')}`,wd=weekdayFor(date);for(const t of templates??[]){if(Number(t.weekday)!==wd)continue;rows.push({team_id:teamId,staff_id:t.staff_id,coach_user_id:t.coach_user_id,work_date:date,start_time:t.start_time,end_time:t.end_time,student_count:null,scope_type:'team',grade:null,training_group_id:null,source:'template',note:t.note});}}await supabase.from('coach_attendance_segments').delete().eq('team_id',teamId).gte('work_date',start).lt('work_date',next).eq('source','template');if(rows.length){const {error:ins}=await supabase.from('coach_attendance_segments').insert(rows);if(ins)redirect(`/payroll?month=${month}&error=${enc(ins.message)}`);}redirect(`/payroll?month=${month}&date=${month}-01&message=${enc(`已套用 ${month} 全月教練班表。`)}`);}
 export async function deleteCoachAttendance(formData:FormData){const {supabase,teamId}=await ctx();const date=String(formData.get('work_date')??'');await supabase.from('coach_attendance_segments').delete().eq('id',String(formData.get('id')??'')).eq('team_id',teamId);redirect(`/payroll${date?`?date=${date}`:''}`);}
 
-export async function addFinanceItem(formData:FormData){const {supabase,userId,teamId}=await ctx();const raw=String(formData.get('record_month')??'');const month=raw?`${raw.slice(0,7)}-01`:'';const type=String(formData.get('item_type')??'expense');const category=String(formData.get('category')??'').trim();const description=String(formData.get('description')??'').trim()||null;const amount=Number(formData.get('amount')??0);if(!month||!category||!Number.isFinite(amount)||amount<0)redirect('/payroll?error='+enc('請確認收支項目。'));const {error}=await supabase.from('finance_items').insert({team_id:teamId,record_month:month,item_type:type,category,description,amount,created_by:userId});if(error)redirect('/payroll?error='+enc(error.message));redirect(`/payroll?month=${raw.slice(0,7)}&message=${enc('收支項目已新增。')}`);}
-export async function deleteFinanceItem(formData:FormData){const {supabase,teamId}=await ctx();const month=String(formData.get('month')??'');await supabase.from('finance_items').delete().eq('id',String(formData.get('id')??'')).eq('team_id',teamId);redirect(`/payroll${month?`?month=${month}`:''}`);}
+export async function addFinanceItem(formData:FormData){
+  const {supabase,userId,teamId}=await ctx();
+  const raw=String(formData.get('record_month')??'');
+  const month=raw?`${raw.slice(0,7)}-01`:'';
+  const monthParam=raw.slice(0,7);
+  const type=String(formData.get('item_type')??'expense');
+  const category=String(formData.get('category')??'').trim();
+  const description=String(formData.get('description')??'').trim()||null;
+  const amount=Number(formData.get('amount')??0);
+  const financeUrl=(kind:'message'|'error',text:string)=>`/payroll?${monthParam?`month=${monthParam}&`:''}${kind}=${enc(text)}#finance`;
+  if(!month||!category||!Number.isFinite(amount)||amount<0)redirect(financeUrl('error','請確認收支項目。'));
+  const {error}=await supabase.from('finance_items').insert({team_id:teamId,record_month:month,item_type:type,category,description,amount,created_by:userId});
+  if(error)redirect(financeUrl('error',error.message));
+  redirect(financeUrl('message','收支項目已新增。'));
+}
+export async function deleteFinanceItem(formData:FormData){
+  const {supabase,teamId}=await ctx();
+  const month=String(formData.get('month')??'').slice(0,7);
+  const id=String(formData.get('id')??'');
+  const {error}=await supabase.from('finance_items').delete().eq('id',id).eq('team_id',teamId);
+  if(error)redirect(`/payroll?${month?`month=${month}&`:''}error=${enc(error.message)}#finance`);
+  redirect(`/payroll${month?`?month=${month}`:''}#finance`);
+}
