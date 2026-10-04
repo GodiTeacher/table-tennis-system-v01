@@ -70,11 +70,17 @@ export default function CompetitionParticipantEnhancer(){
           header.className='participantTeamHead';
           header.innerHTML=`<div><strong>${category}</strong><small>${date} · ${members.length} 人</small></div><button type="button" class="secondaryButton" data-team-edit>編輯隊伍</button>`;
           const body=document.createElement('div');body.className='participantTeamMembers';
-          members.sort((a,b)=>a.studentName.localeCompare(b.studentName,'zh-Hant')).forEach(m=>{
-            const badge=Array.from(m.row.children).find(el=>el.tagName==='SPAN') as HTMLSpanElement|undefined;
-            if(badge)badge.textContent=m.participantRole==='reserve'?'後備':'參賽';
-            body.appendChild(m.row);
-          });
+          const roleOrder:Record<string,number>={competitor:0,reserve:1};
+          members
+            .sort((a,b)=>{
+              const roleDiff=(roleOrder[a.participantRole]??9)-(roleOrder[b.participantRole]??9);
+              return roleDiff!==0?roleDiff:a.studentName.localeCompare(b.studentName,'zh-Hant');
+            })
+            .forEach(m=>{
+              const badge=Array.from(m.row.children).find(el=>el.tagName==='SPAN') as HTMLSpanElement|undefined;
+              if(badge)badge.textContent=m.participantRole==='reserve'?'後備':'參賽';
+              body.appendChild(m.row);
+            });
           team.append(header,body);
           list.appendChild(team);
 
