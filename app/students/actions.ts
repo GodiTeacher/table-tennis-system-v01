@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { friendlyPlanError } from '@/lib/subscription-server';
 
 const VALID_GENDERS = new Set(['男', '女', '其他']);
 
@@ -50,6 +51,10 @@ function normalizeImportedStudent(raw:any) {
   };
 }
 
+function studentError(message:string){
+  return `/students?error=${encodeURIComponent(friendlyPlanError(message))}`;
+}
+
 export async function addStudent(formData: FormData) {
   const displayName = String(formData.get('display_name') ?? '').trim();
   if (!displayName) return;
@@ -61,7 +66,7 @@ export async function addStudent(formData: FormData) {
     seat_number: parseSeatNumber(formData.get('seat_number')),
     gender: parseGender(formData.get('gender')),
   });
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
   revalidatePath('/today');
 }
@@ -80,7 +85,6 @@ export async function batchAddStudents(formData: FormData) {
       const nameRaw = values[0] ?? '';
       const gradeRaw = values[1] ?? '';
       const classRaw = values[2] ?? '';
-      // 新格式：姓名、年級、班級、座號、性別；舊四欄格式仍支援：姓名、年級、班級、性別。
       const fourth = values[3] ?? '';
       const fifth = values[4] ?? '';
       const oldFourColumn = values.length === 4 && VALID_GENDERS.has(fourth);
@@ -102,7 +106,7 @@ export async function batchAddStudents(formData: FormData) {
 
   const supabase = await requireUser();
   const { error } = await supabase.from('students').insert(rows);
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
   revalidatePath('/today');
 }
@@ -116,7 +120,7 @@ export async function importStudentsData(formData: FormData) {
   if (!rows.length) redirect('/students?error=' + encodeURIComponent('匯入檔案中沒有可新增的學生'));
   const supabase = await requireUser();
   const { error } = await supabase.from('students').insert(rows);
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
   revalidatePath('/today');
 }
@@ -135,7 +139,7 @@ export async function updateStudent(formData: FormData) {
     gender: parseGender(formData.get('gender')),
   }).eq('id', id);
 
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
   revalidatePath('/today');
 }
@@ -146,7 +150,7 @@ export async function setStudentActive(formData: FormData) {
   if (!id) return;
   const supabase = await requireUser();
   const { error } = await supabase.from('students').update({ active }).eq('id', id);
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
 }
 
@@ -160,13 +164,13 @@ export async function deleteStudent(formData: FormData) {
     .select('*', { count: 'exact', head: true })
     .eq('student_id', id);
 
-  if (countError) redirect(`/students?error=${encodeURIComponent(countError.message)}`);
+  if (countError) redirect(studentError(countError.message));
   if ((count ?? 0) > 0) {
     redirect('/students?error=' + encodeURIComponent('此學生已有歷史訓練紀錄，為避免破壞紀錄不能永久刪除；請改用「停用」。'));
   }
 
   const { error } = await supabase.from('students').delete().eq('id', id);
-  if (error) redirect(`/students?error=${encodeURIComponent(error.message)}`);
+  if (error) redirect(studentError(error.message));
   revalidatePath('/students');
 }
 
