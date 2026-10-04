@@ -8,7 +8,11 @@ async function getCoachContext(){
   if(!userId) return {error:NextResponse.json({ok:false,error:'尚未登入'},{status:401})};
   const {data:profile}=await supabase.from('profiles').select('role').eq('id',userId).single();
   if(!profile||!['admin','coach'].includes(profile.role)) return {error:NextResponse.json({ok:false,error:'沒有權限'},{status:403})};
-  return {supabase};
+  const {data:teamId}=await supabase.rpc('current_team_id');
+  if(!teamId) return {error:NextResponse.json({ok:false,error:'找不到目前球隊'},{status:400})};
+  const {data:allowed}=await supabase.rpc('team_can_use',{target_team:teamId,feature_key:'advanced_competitions'});
+  if(!allowed) return {error:NextResponse.json({ok:false,error:'此功能為菁英版功能，請先升級方案。',code:'PRO_REQUIRED'},{status:403})};
+  return {supabase,teamId};
 }
 
 const conflictMessage=(message:string)=>message.includes('duplicate')||message.includes('unique')?'同一位學生在這一天的相同組別已經存在':message;
