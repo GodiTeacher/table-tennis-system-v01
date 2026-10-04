@@ -55,10 +55,39 @@ function studentError(message:string){
   return `/students?error=${encodeURIComponent(friendlyPlanError(message))}`;
 }
 
+async function ensureStudentCapacity(supabase:any,incomingActive:number){
+  if(incomingActive<=0)return;
+  const {data:teamId,error:teamError}=await supabase.rpc('current_team_id');
+  if(teamError)redirect(studentError(teamError.message));
+  if(!teamId)return;
+
+  const {data:entitlements,error:entitlementError}=await supabase.rpc('get_team_entitlements',{target_team:teamId});
+  if(entitlementError)redirect(studentError(entitlementError.message));
+  const limit=entitlements?.student_limit as number|null|undefined;
+  if(limit==null)return;
+
+  const {count,error:countError}=await supabase
+    .from('students')
+    .select('id',{count:'exact',head:true})
+    .eq('team_id',teamId)
+    .eq('active',true);
+  if(countError)redirect(studentError(countError.message));
+
+  const current=count??0;
+  const remaining=Math.max(0,limit-current);
+  if(current+incomingActive>limit){
+    const message=remaining===0
+      ? `免費版最多可使用 ${limit} 位啟用中的學生，目前已達上限。可先停用不使用的學生，或升級菁英版。`
+      : `免費版最多可使用 ${limit} 位啟用中的學生，目前已有 ${current} 位，這次要新增 ${incomingActive} 位；最多還可新增 ${remaining} 位。`;
+    redirect(`/students?error=${encodeURIComponent(message)}`);
+  }
+}
+
 export async function addStudent(formData: FormData) {
   const displayName = String(formData.get('display_name') ?? '').trim();
   if (!displayName) return;
   const supabase = await requireUser();
+  await ensureStudentCapacity(supabase,1);
   const { error } = await supabase.from('students').insert({
     display_name: displayName,
     grade: parseGrade(formData.get('grade')),
@@ -105,6 +134,7 @@ export async function batchAddStudents(formData: FormData) {
   if (!rows.length) redirect('/students?error=' + encodeURIComponent('沒有讀到可新增的學生資料'));
 
   const supabase = await requireUser();
+  await ensureStudentCapacity(supabase,rows.length);
   const { error } = await supabase.from('students').insert(rows);
   if (error) redirect(studentError(error.message));
   revalidatePath('/students');
@@ -119,6 +149,7 @@ export async function importStudentsData(formData: FormData) {
   const rows = (Array.isArray(parsed) ? parsed : []).map(normalizeImportedStudent).filter(row => row.display_name && row.display_name !== '姓名');
   if (!rows.length) redirect('/students?error=' + encodeURIComponent('匯入檔案中沒有可新增的學生'));
   const supabase = await requireUser();
+  await ensureStudentCapacity(supabase,rows.filter(row=>row.active!==false).length);
   const { error } = await supabase.from('students').insert(rows);
   if (error) redirect(studentError(error.message));
   revalidatePath('/students');
@@ -149,6 +180,7 @@ export async function setStudentActive(formData: FormData) {
   const active = String(formData.get('active') ?? '') === 'true';
   if (!id) return;
   const supabase = await requireUser();
+  if(active)await ensureStudentCapacity(supabase,1);
   const { error } = await supabase.from('students').update({ active }).eq('id', id);
   if (error) redirect(studentError(error.message));
   revalidatePath('/students');
