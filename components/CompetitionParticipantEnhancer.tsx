@@ -70,17 +70,32 @@ export default function CompetitionParticipantEnhancer(){
           header.className='participantTeamHead';
           header.innerHTML=`<div><strong>${category}</strong><small>${date} · ${members.length} 人</small></div><button type="button" class="secondaryButton" data-team-edit>編輯隊伍</button>`;
           const body=document.createElement('div');body.className='participantTeamMembers';
+
           const roleOrder:Record<string,number>={competitor:0,reserve:1};
-          members
-            .sort((a,b)=>{
-              const roleDiff=(roleOrder[a.participantRole]??9)-(roleOrder[b.participantRole]??9);
-              return roleDiff!==0?roleDiff:a.studentName.localeCompare(b.studentName,'zh-Hant');
-            })
-            .forEach(m=>{
-              const badge=Array.from(m.row.children).find(el=>el.tagName==='SPAN') as HTMLSpanElement|undefined;
-              if(badge)badge.textContent=m.participantRole==='reserve'?'後備':'參賽';
-              body.appendChild(m.row);
-            });
+          const orderedMembers=[...members].sort((a,b)=>{
+            const roleDiff=(roleOrder[a.participantRole]??9)-(roleOrder[b.participantRole]??9);
+            return roleDiff!==0?roleDiff:a.studentName.localeCompare(b.studentName,'zh-Hant');
+          });
+
+          let lastRole='';
+          orderedMembers.forEach(m=>{
+            if(m.participantRole!==lastRole){
+              const divider=document.createElement('div');
+              divider.className=`participantRoleDivider ${m.participantRole==='reserve'?'reserve':'competitor'}`;
+              divider.textContent=m.participantRole==='reserve'?'後備':'參賽';
+              body.appendChild(divider);
+              lastRole=m.participantRole;
+            }
+            const badge=Array.from(m.row.children).find(el=>el.tagName==='SPAN') as HTMLSpanElement|undefined;
+            m.row.classList.remove('participantCompetitor','participantReserve');
+            m.row.classList.add(m.participantRole==='reserve'?'participantReserve':'participantCompetitor');
+            if(badge){
+              badge.textContent=m.participantRole==='reserve'?'後備':'參賽';
+              badge.classList.remove('participantRoleBadgeCompetitor','participantRoleBadgeReserve');
+              badge.classList.add(m.participantRole==='reserve'?'participantRoleBadgeReserve':'participantRoleBadgeCompetitor');
+            }
+            body.appendChild(m.row);
+          });
           team.append(header,body);
           list.appendChild(team);
 
@@ -150,7 +165,7 @@ export default function CompetitionParticipantEnhancer(){
     [100,300,700,1500].forEach(ms=>window.setTimeout(init,ms));
 
     const style=document.createElement('style');style.dataset.participantEnhancer='1';style.textContent=`
-      #participants{scroll-margin-top:18px}.participantList{display:grid;gap:12px}.participantTeam{border:1px solid var(--theme-border,#dfe4eb);border-radius:16px;background:color-mix(in srgb,var(--theme-soft,#f7f4ff) 45%,white);overflow:hidden}.participantTeamHead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--theme-border,#e5e7eb)}.participantTeamHead>div{display:grid;gap:3px}.participantTeamHead strong{font-size:14px}.participantTeamHead small{font-size:11px;color:#778196}.participantTeamMembers{display:grid;gap:8px;padding:10px}.participantTeamMembers>.participant{margin:0}.participantTeamEditor{padding:14px;border-top:1px solid var(--theme-border,#e5e7eb);background:#fff}.teamEditorGrid{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px}.teamEditorGrid label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#687386}.teamEditorGrid input,.teamEditorGrid select{width:100%;padding:9px 10px;border:1px solid #dfe4eb;border-radius:10px;background:#fff;color:#172033;font:inherit}.teamEditorHint{margin:12px 0 8px;padding:9px 10px;border-radius:10px;background:var(--theme-soft,#f7f4ff);font-size:11px;color:#667085}.teamStudentPicker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:280px;overflow:auto}.teamStudentPicker label{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid #e6e9ef;border-radius:11px;cursor:pointer}.teamStudentPicker span{display:grid}.teamStudentPicker b{font-size:12px}.teamStudentPicker small{font-size:10px;color:#8791a1}.participantEditActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}@media(max-width:700px){.teamEditorGrid,.teamStudentPicker{grid-template-columns:1fr}.participantTeamHead{align-items:flex-start}.participantTeamHead button{white-space:nowrap}}
+      #participants{scroll-margin-top:18px}.participantList{display:grid;gap:12px}.participantTeam{border:1px solid var(--theme-border,#dfe4eb);border-radius:16px;background:color-mix(in srgb,var(--theme-soft,#f7f4ff) 45%,white);overflow:hidden}.participantTeamHead{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--theme-border,#e5e7eb)}.participantTeamHead>div{display:grid;gap:3px}.participantTeamHead strong{font-size:14px}.participantTeamHead small{font-size:11px;color:#778196}.participantTeamMembers{display:grid;gap:8px;padding:10px}.participantTeamMembers>.participant{margin:0}.participantRoleDivider{margin:2px 0 0;padding:5px 9px;border-radius:999px;width:max-content;font-size:10px;font-weight:900;letter-spacing:.05em}.participantRoleDivider.competitor{background:#e8f7ef;color:#127a47}.participantRoleDivider.reserve{background:#fff1dc;color:#a75a05}.participantCompetitor{border-color:#cfeadb!important;background:#f8fffb!important}.participantReserve{border-color:#f3dfbd!important;background:#fffaf2!important}.participantRoleBadgeCompetitor{background:#e8f7ef!important;color:#127a47!important;border:1px solid #c8ead6!important}.participantRoleBadgeReserve{background:#fff1dc!important;color:#a75a05!important;border:1px solid #f2d5aa!important}.participantTeamEditor{padding:14px;border-top:1px solid var(--theme-border,#e5e7eb);background:#fff}.teamEditorGrid{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:10px}.teamEditorGrid label{display:grid;gap:5px;font-size:11px;font-weight:800;color:#687386}.teamEditorGrid input,.teamEditorGrid select{width:100%;padding:9px 10px;border:1px solid #dfe4eb;border-radius:10px;background:#fff;color:#172033;font:inherit}.teamEditorHint{margin:12px 0 8px;padding:9px 10px;border-radius:10px;background:var(--theme-soft,#f7f4ff);font-size:11px;color:#667085}.teamStudentPicker{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;max-height:280px;overflow:auto}.teamStudentPicker label{display:flex;gap:8px;align-items:flex-start;padding:9px;border:1px solid #e6e9ef;border-radius:11px;cursor:pointer}.teamStudentPicker span{display:grid}.teamStudentPicker b{font-size:12px}.teamStudentPicker small{font-size:10px;color:#8791a1}.participantEditActions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}@media(max-width:700px){.teamEditorGrid,.teamStudentPicker{grid-template-columns:1fr}.participantTeamHead{align-items:flex-start}.participantTeamHead button{white-space:nowrap}}
     `;document.head.appendChild(style);
     return()=>{stopped=true;observer?.disconnect();style.remove();};
   },[]);
