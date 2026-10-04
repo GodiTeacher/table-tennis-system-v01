@@ -27,15 +27,21 @@ export async function POST(request:Request){
     const oldCategory=String(formData.get('old_category')??'').trim();
     const competitionDate=String(formData.get('competition_date')??'').trim();
     const category=String(formData.get('category')??'').trim();
-    const participantRole=String(formData.get('participant_role')??'competitor');
-    const studentIds=[...new Set(formData.getAll('student_ids').map(String).filter(Boolean))];
-    if(!oldDate||!oldCategory||!competitionDate||!category||!studentIds.length||!['competitor','reserve'].includes(participantRole)){
-      return NextResponse.json({ok:false,error:'請確認隊伍日期、組別、身分與至少一位隊員'},{status:400});
+    const competitorIds=[...new Set(formData.getAll('competitor_student_ids').map(String).filter(Boolean))];
+    const reserveIds=[...new Set(formData.getAll('reserve_student_ids').map(String).filter(Boolean))];
+    const overlap=competitorIds.filter(id=>reserveIds.includes(id));
+    const studentIds=[...new Set([...competitorIds,...reserveIds])];
+
+    if(!oldDate||!oldCategory||!competitionDate||!category||!studentIds.length){
+      return NextResponse.json({ok:false,error:'請確認隊伍日期、組別，並至少保留一位參賽或後備選手'},{status:400});
+    }
+    if(overlap.length){
+      return NextResponse.json({ok:false,error:'同一位選手不能同時設定為參賽與後備'},{status:400});
     }
 
     const {data:oldRows,error:oldError}=await supabase
       .from('competition_participants')
-      .select('id,student_id')
+      .select('id,student_id,participant_role')
       .eq('competition_id',competitionId)
       .eq('competition_date',oldDate)
       .eq('category',oldCategory);
@@ -56,20 +62,38 @@ export async function POST(request:Request){
     const outsideConflict=(targetRows??[]).find((r:any)=>!oldIds.has(String(r.id)));
     if(outsideConflict) return NextResponse.json({ok:false,error:'有勾選的學生已存在於目標日期與組別，請先確認名單'},{status:409});
 
-    const retainedIds=studentIds.map(id=>oldByStudent.get(id)).filter(Boolean) as string[];
-    const addedIds=studentIds.filter(id=>!oldByStudent.has(id));
-    const removedRowIds=oldRows.filter((r:any)=>!studentIds.includes(String(r.student_id))).map((r:any)=>String(r.id));
+    const desiredRole=new Map<string,'competitor'|'reserve'>();
+    competitorIds.forEach(id=>desiredRole.set(id,'competitor'));
+    reserveIds.forEach(id=>desiredRole.set(id,'reserve'));
 
-    if(retainedIds.length){
+    const retained=studentIds.filter(id=>oldByStudent.has(id));
+    const addedIds=studentIds.filter(id=>!oldByStudent.has(id));
+    const removedRowIds=oldRows.filter((r:any)=>!desiredRole.has(String(r.student_id))).map((r:any)=>String(r.id));
+
+    const retainedCompetitors=retained.filter(id=>desiredRole.get(id)==='competitor').map(id=>oldByStudent.get(id)!).filter(Boolean);
+    const retainedReserves=retained.filter(id=>desiredRole.get(id)==='reserve').map(id=>oldByStudent.get(id)!).filter(Boolean);
+
+    if(retainedCompetitors.length){
       const {error}=await supabase.from('competition_participants')
-        .update({competition_date:competitionDate,category,participant_role:participantRole})
-        .eq('competition_id',competitionId)
-        .in('id',retainedIds);
+        .update({competition_date:competitionDate,category,participant_role:'competitor'})
+        .eq('competition_id',competitionId).in('id',retainedCompetitors);
+      if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
+    }
+    if(retainedReserves.length){
+      const {error}=await supabase.from('competition_participants')
+        .update({competition_date:competitionDate,category,participant_role:'reserve'})
+        .eq('competition_id',competitionId).in('id',retainedReserves);
       if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
     }
 
     if(addedIds.length){
-      const rows=addedIds.map(studentId=>({competition_id:competitionId,student_id:studentId,competition_date:competitionDate,category,participant_role:participantRole}));
+      const rows=addedIds.map(studentId=>({
+        competition_id:competitionId,
+        student_id:studentId,
+        competition_date:competitionDate,
+        category,
+        participant_role:desiredRole.get(studentId)??'competitor',
+      }));
       const {error}=await supabase.from('competition_participants').insert(rows);
       if(error) return NextResponse.json({ok:false,error:conflictMessage(String(error.message||''))},{status:409});
     }
@@ -79,7 +103,7 @@ export async function POST(request:Request){
       if(error) return NextResponse.json({ok:false,error:error.message},{status:500});
     }
 
-    return NextResponse.json({ok:true,updated:retainedIds.length,added:addedIds.length,removed:removedRowIds.length});
+    return NextResponse.json({ok:true,updated:retained.length,added:addedIds.length,removed:removedRowIds.length,competitors:competitorIds.length,reserves:reserveIds.length});
   }
 
   if(intent==='update'){
