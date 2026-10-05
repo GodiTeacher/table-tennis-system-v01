@@ -9,7 +9,8 @@
     "dev:vinext": "vinext dev",
     "build:vinext": "vinext build",
     "check:vinext": "vinext check",
-    "deploy": "npx @vinext/cloudflare deploy"
+    "build:worker": "opennextjs-cloudflare build",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -19,10 +20,12 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.8",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^5.9.3",
-    "vinext": "^1.0.0-beta.12"
+    "vinext": "^1.0.0-beta.12",
+    "wrangler": "^4.147.0"
   }
 }
