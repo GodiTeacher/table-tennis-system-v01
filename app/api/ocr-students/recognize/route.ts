@@ -1,6 +1,5 @@
 import {NextResponse} from 'next/server';
 import {createClient} from '@/lib/supabase/server';
-import {env} from 'cloudflare:workers';
 
 const MAX_FILE_BYTES=6*1024*1024;
 const ALLOWED_TYPES=new Set(['image/jpeg','image/png','image/webp']);
@@ -38,9 +37,11 @@ export async function POST(request:Request){
   if(!(file instanceof File))return NextResponse.json({ok:false,error:'請先選擇學生名單照片'},{status:400});
   if(!ALLOWED_TYPES.has(file.type))return NextResponse.json({ok:false,error:'目前支援 JPG、PNG、WebP 圖片'},{status:400});
   if(file.size>MAX_FILE_BYTES)return NextResponse.json({ok:false,error:'圖片過大，請壓縮至 6MB 以下'},{status:400});
-  if(!env.AI)return NextResponse.json({ok:false,error:'照片辨識服務尚未連線，請稍後再試'},{status:503});
 
   try{
+    const {env}=await import('cloudflare:workers');
+    if(!env.AI)return NextResponse.json({ok:false,error:'照片辨識服務尚未連線，請稍後再試'},{status:503});
+
     const bytes=new Uint8Array(await file.arrayBuffer());
     let binary='';
     const chunk=0x8000;
