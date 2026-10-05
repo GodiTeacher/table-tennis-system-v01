@@ -63,14 +63,30 @@ export async function POST(request:Request){
       if(rows.length<2&&(visionText||documentText)){
         try{const source=`${visionText}\n${documentText}`.slice(0,4000);const cleaned:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{messages:[{role:'system',content:'你只負責從 OCR 文字找出台灣學生姓名，不得新增不存在的人名。'},{role:'user',content:`從以下文字只列出學生姓名，一行一個，保持原順序。排除標題與工作表名稱。\n${source}`}],temperature:0,max_tokens:700}),6000,'CLEANUP_TIMEOUT');rows=dedupe([...rows,...parseNames(String(cleaned?.response??cleaned?.answer??cleaned?.text??''))]);}catch{}
       }
-      return {index,rows};
+      return {index,rows,raw:[visionText,documentText].filter(Boolean).join('\n')};
     }));
 
     const ordered=segmentResults.sort((a,b)=>a.index-b.index).flatMap(r=>r.rows);
-    const rows=dedupe(ordered);
+    let rows=dedupe(ordered);
+
+    const combinedRaw=segmentResults.sort((a,b)=>a.index-b.index).map((r,i)=>r.raw?`【第${i+1}段】\n${r.raw}`:'').filter(Boolean).join('\n\n').slice(0,14000);
+    if(combinedRaw&&rows.length<18){
+      try{
+        const cleaned:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{
+          messages:[
+            {role:'system',content:'你是台灣學生名單 OCR 校正器。只能從提供的 OCR 原文找出實際出現的學生姓名，不可自行猜測或補造姓名。'},
+            {role:'user',content:`以下是同一個姓名欄由上到下分段 OCR 的原始結果。請綜合所有段落，盡量完整找出學生姓名並維持由上到下順序。姓名通常 2～4 個繁體中文字。相鄰分段可能重複，重複姓名只保留一次。排除「姓名、學生、點名票、作業單、點數紀錄表、工作表」等標題。只輸出 JSON 陣列，例如 [{"display_name":"王小明"}]，不要說明。\n\n${combinedRaw}`}
+          ],temperature:0,max_tokens:1800
+        }),9000,'GLOBAL_CLEANUP_TIMEOUT');
+        const recovered=parseNames(String(cleaned?.response??cleaned?.answer??cleaned?.text??cleaned?.result??''));
+        if(recovered.length>rows.length)rows=recovered;
+        else if(recovered.length)rows=dedupe([...rows,...recovered]);
+      }catch{}
+    }
+
     if(!rows.length)return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'系統已讀取裁切區域，但仍沒有整理出可靠的學生姓名。這次不扣使用次數；請把框選範圍縮小到只剩姓名欄再試。'},{status:422});
 
     const {data:consumeData,error:consumeError}=await supabase.rpc('consume_ocr_import');if(consumeError)return NextResponse.json({ok:false,error:consumeError.message},{status:500});const consumed=Array.isArray(consumeData)?consumeData[0]:consumeData;if(!consumed?.allowed)return NextResponse.json({ok:false,code:'OCR_LIMIT_REACHED',error:'本月照片文字辨識額度已用完'},{status:429});
-    return NextResponse.json({ok:true,rows,fields:['display_name'],method:'ordered-segment-name-ocr',parts:files.length,elapsedMs:Date.now()-started,quota:{used:Number(consumed.used??0),monthlyLimit:consumed.monthly_limit==null?null:Number(consumed.monthly_limit),remaining:consumed.remaining==null?null:Number(consumed.remaining)}});
+    return NextResponse.json({ok:true,rows,fields:['display_name'],method:'ordered-segment-name-ocr-v2',parts:files.length,elapsedMs:Date.now()-started,quota:{used:Number(consumed.used??0),monthlyLimit:consumed.monthly_limit==null?null:Number(consumed.monthly_limit),remaining:consumed.remaining==null?null:Number(consumed.remaining)}});
   }catch(error:any){console.error('ocr-students failed',error);return NextResponse.json({ok:false,error:'照片辨識服務暫時失敗，這次不會扣使用次數，請稍後再試。'},{status:500});}
 }
