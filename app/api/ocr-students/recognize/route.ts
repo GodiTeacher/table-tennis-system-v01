@@ -71,7 +71,7 @@ function parsePlainRows(text:string,fields:FieldKey[]){
       const g=tokens.find(p=>['男','女','其他'].includes(p)); if(g)gender=g;
     }
     seen.add(chineseName);
-    rows.push({display_name:chineseName,grade,class_name,seat_number,gender,confidence:.62});
+    rows.push({display_name:chineseName,grade,class_name,seat_number,gender,confidence:.7});
   }
   return rows;
 }
@@ -86,15 +86,32 @@ function fieldPrompt(fields:FieldKey[]){
   const schema:Record<FieldKey,string>={display_name:'"display_name":"姓名"',grade:'"grade":1到6或null',class_name:'"class_name":"班級原文或null"',seat_number:'"seat_number":座號數字或null',gender:'"gender":"男/女/其他或null"'};
   const shape=fields.map(f=>schema[f]).join(',');
   if(fields.length===1){
-    return '這是一張台灣學校學生名單照片。請只辨識學生姓名，依照片由上到下讀取。忽略數字、班級、座號、性別、日期、出席勾選、補課文字。只輸出 JSON 陣列，例如 [{"display_name":"王小明","confidence":0.95}]。姓名請保留繁體中文；看不清楚的姓名不要猜。';
+    return '這是一張台灣學校學生名單。請只辨識「姓名欄」，由上到下逐列讀取。忽略所有數字、班級、座號、性別、日期、出席勾選與註記。只輸出 JSON 陣列，例如 [{"display_name":"王小明","confidence":0.95}]。姓名請保留繁體中文；看不清楚的字不要猜。';
   }
-  return `這是一張台灣學校學生名單照片。請逐列讀取，這次只辨識：${selected}。\n忽略日期、出席勾選、補課註記、工作天數等非學生基本資料。\n只輸出 JSON 陣列，不要 Markdown、不加說明。每筆格式：{${shape},"confidence":0到1}。\n姓名必須保留繁體中文。不要把最左側流水序號當座號。班級代碼如 102、201、301 請保留原文；若有要求年級，可用第一碼推定年級。沒有被要求的欄位不要猜。`;
+  return `這是一張台灣學校學生名單。請逐列讀取，這次只辨識：${selected}。\n忽略日期、出席勾選、補課註記、工作天數等非學生基本資料。\n只輸出 JSON 陣列，不要 Markdown、不加說明。每筆格式：{${shape},"confidence":0到1}。\n姓名必須保留繁體中文。不要把最左側流水序號當座號。班級代碼如 102、201、301 請保留原文；若有要求年級，可用第一碼推定年級。沒有被要求的欄位不要猜。`;
 }
 
 function fallbackPrompt(fields:FieldKey[]){
   const labels:Record<FieldKey,string>={display_name:'姓名',grade:'年級',class_name:'班級',seat_number:'座號',gender:'性別'};
-  if(fields.length===1)return '請只抄出圖片中「學生姓名」那一欄，由上到下每行一個繁體中文姓名。不要抄數字、班級、座號、性別、日期、註記或其他文字。不要解釋。';
-  return `請只做文字抄錄，不要解釋。把這張台灣學生名單由上到下抄成多行。每行只放 ${fields.map(f=>labels[f]).join('、')}，欄位用 TAB 分隔。姓名一定要保留繁體中文。看不到的欄位留空。不要把最左側流水序號當座號。`;
+  if(fields.length===1)return '只做 OCR 抄錄。請把圖片中姓名欄的繁體中文姓名由上到下逐行抄出，每行一個姓名，不要任何數字、符號、說明或其他欄位。';
+  return `只做 OCR 抄錄，不要解釋。把這張學生名單由上到下抄成多行。每行只放 ${fields.map(f=>labels[f]).join('、')}，欄位用 TAB 分隔。姓名一定保留繁體中文。看不到的欄位留空，不要把流水序號當座號。`;
+}
+
+function extractModelText(result:any){
+  return String(result?.response??result?.answer??result?.result?.response??result?.result??result?.text??'').trim();
+}
+
+async function runGemmaVision(AI:any,image:string,prompt:string){
+  const result:any=await AI.run('@cf/google/gemma-4-26b-a4b-it',{
+    messages:[
+      {role:'system',content:'你是繁體中文文件 OCR 助手。你的工作是精確抄錄圖片中的文字，尤其是台灣學生姓名。不要自行改字或猜字。'},
+      {role:'user',content:prompt},
+    ],
+    image,
+    max_tokens:5000,
+    temperature:0,
+  });
+  return extractModelText(result);
 }
 
 async function runLlamaVision(AI:any,image:string,prompt:string){
@@ -107,7 +124,7 @@ async function runLlamaVision(AI:any,image:string,prompt:string){
     max_tokens:5000,
     temperature:0,
   });
-  return String(result?.response??result?.answer??result?.result??'').trim();
+  return extractModelText(result);
 }
 
 async function runMoondream(AI:any,image:string,question:string,max_tokens=4500){
@@ -117,6 +134,12 @@ async function runMoondream(AI:any,image:string,question:string,max_tokens=4500)
 
 function normalizeFields(rows:any[],fields:FieldKey[]){
   return rows.map((row:any)=>({...row,grade:fields.includes('grade')?row.grade:null,class_name:fields.includes('class_name')?row.class_name:null,seat_number:fields.includes('seat_number')?row.seat_number:null,gender:fields.includes('gender')?row.gender:null}));
+}
+
+function parseAny(text:string,fields:FieldKey[]){
+  const jsonRows=parseJsonRows(text);
+  if(jsonRows.length)return jsonRows;
+  return parsePlainRows(text,fields);
 }
 
 export async function POST(request:Request){
@@ -142,30 +165,36 @@ export async function POST(request:Request){
 
     let answer=''; let rows:any[]=[]; let method='';
 
-    // Pass 1: use a larger vision model for Chinese roster OCR.
+    // Pass 1: current strongest multilingual vision model on Workers AI.
     try{
-      answer=await runLlamaVision(AI,image,fieldPrompt(fields));
-      rows=parseJsonRows(answer);
-      if(!rows.length)rows=parsePlainRows(answer,fields);
-      if(rows.length)method='llama-vision';
-    }catch(error){console.error('llama vision pass failed',error);}
+      answer=await runGemmaVision(AI,image,fieldPrompt(fields));
+      rows=parseAny(answer,fields);
+      if(rows.length)method='gemma4-structured';
+    }catch(error){console.error('gemma4 structured pass failed',error);}
 
-    // Pass 2: ask the same model for plain transcription; this is easier than structured JSON.
+    // Pass 2: ask Gemma 4 to do pure transcription only.
+    if(!rows.length){
+      try{
+        answer=await runGemmaVision(AI,image,fallbackPrompt(fields));
+        rows=parseAny(answer,fields);
+        if(rows.length)method='gemma4-plain';
+      }catch(error){console.error('gemma4 plain pass failed',error);}
+    }
+
+    // Pass 3: independent Llama vision fallback.
     if(!rows.length){
       try{
         answer=await runLlamaVision(AI,image,fallbackPrompt(fields));
-        rows=parseJsonRows(answer);
-        if(!rows.length)rows=parsePlainRows(answer,fields);
+        rows=parseAny(answer,fields);
         if(rows.length)method='llama-plain';
-      }catch(error){console.error('llama plain pass failed',error);}
+      }catch(error){console.error('llama vision pass failed',error);}
     }
 
-    // Pass 3: keep Moondream as an independent fallback.
+    // Pass 4: Moondream fallback.
     if(!rows.length){
       try{
         answer=await runMoondream(AI,image,fallbackPrompt(fields),4500);
-        rows=parseJsonRows(answer);
-        if(!rows.length)rows=parsePlainRows(answer,fields);
+        rows=parseAny(answer,fields);
         if(rows.length)method='moondream-fallback';
       }catch(error){console.error('moondream fallback failed',error);}
     }
@@ -173,7 +202,7 @@ export async function POST(request:Request){
     rows=normalizeFields(rows,fields);
     if(!rows.length){
       console.error('ocr no rows after all models',{answer:answer.slice(0,1800),fields});
-      return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'這張照片目前仍無法可靠辨識姓名。這次不會扣使用次數。請把名單裁切到「姓名欄」附近再試，或直接把畫面截圖給我們。'},{status:422});
+      return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'這張照片很清楚，但目前的辨識模型仍沒有可靠抓到姓名。這次不會扣使用次數。我們已改用更強的繁體中文視覺模型；若仍看到這個訊息，請把畫面截圖給我們。'},{status:422});
     }
 
     const {data:consumeData,error:consumeError}=await supabase.rpc('consume_ocr_import');
