@@ -5,6 +5,7 @@ import "./globals.css";
 import "./app-shell.css";
 import "./themes.css";
 import "./equipment-guide.css";
+import "./photo-import-fixes.css";
 import AppBottomNav from "@/components/AppBottomNav";
 import ThemeCookieBootstrap from "@/components/ThemeCookieBootstrap";
 import OperationsFlowNav from "@/components/OperationsFlowNav";
