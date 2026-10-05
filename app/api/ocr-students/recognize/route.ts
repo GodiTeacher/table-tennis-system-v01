@@ -29,17 +29,43 @@ function parseJsonRows(text:string){
   for(const candidate of attempts){
     try{const rows=normalizeParsedRows(JSON.parse(candidate));if(rows.length)return rows;}catch{}
   }
-  throw new Error('AI 有讀到圖片，但沒有回傳可解析的學生名單');
+  return [];
+}
+
+function parsePlainRows(text:string,fields:FieldKey[]){
+  const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+  const rows:any[]=[];
+  for(const raw of lines){
+    const line=raw.replace(/^[-*•\d.、)\s]+/,'').trim();
+    if(!line||/^(姓名|name|學生|名單|班級|年級)/i.test(line))continue;
+    const parts=line.split(/\t|\s{2,}|[,，|｜]/).map(x=>x.trim()).filter(Boolean);
+    const chineseName=parts.find(p=>/^[\u3400-\u9fff·]{2,5}$/.test(p))||line.match(/[\u3400-\u9fff·]{2,5}/)?.[0];
+    if(!chineseName)continue;
+    let class_name:string|null=null,grade:number|null=null,seat_number:number|null=null,gender:string|null=null;
+    const tokens=parts.filter(p=>p!==chineseName);
+    if(fields.includes('class_name')){
+      const classToken=tokens.find(p=>/^\d{3}$/.test(p)||/^[一二三四五六1-6][甲乙丙丁戊己庚辛壬癸A-Za-z0-9]*班?$/.test(p));
+      if(classToken)class_name=classToken;
+    }
+    if(fields.includes('grade')){
+      const direct=tokens.find(p=>/^[1-6]$/.test(p)||/^[一二三四五六]年級$/.test(p));
+      if(direct&&/^[1-6]$/.test(direct))grade=Number(direct);
+      else if(class_name&&/^\d{3}$/.test(class_name))grade=Number(class_name[0]);
+    }
+    if(fields.includes('seat_number')){
+      const nums=tokens.filter(p=>/^\d{1,2}$/.test(p)).map(Number);
+      if(nums.length)seat_number=nums[nums.length-1];
+    }
+    if(fields.includes('gender')){
+      const g=tokens.find(p=>['男','女','其他'].includes(p)); if(g)gender=g;
+    }
+    rows.push({display_name:chineseName,grade,class_name,seat_number,gender,confidence:.65});
+  }
+  return rows;
 }
 
 function requestedFields(raw:FormDataEntryValue|null):FieldKey[]{
-  try{
-    const values=JSON.parse(String(raw??'[]'));
-    if(!Array.isArray(values))return [...FIELD_KEYS];
-    const fields=FIELD_KEYS.filter(key=>values.includes(key));
-    if(!fields.includes('display_name'))fields.unshift('display_name');
-    return fields;
-  }catch{return [...FIELD_KEYS];}
+  try{const values=JSON.parse(String(raw??'[]'));if(!Array.isArray(values))return [...FIELD_KEYS];const fields=FIELD_KEYS.filter(key=>values.includes(key));if(!fields.includes('display_name'))fields.unshift('display_name');return fields;}catch{return [...FIELD_KEYS];}
 }
 
 function fieldPrompt(fields:FieldKey[]){
@@ -47,65 +73,59 @@ function fieldPrompt(fields:FieldKey[]){
   const selected=fields.map(f=>labels[f]).join('、');
   const schema:Record<FieldKey,string>={display_name:'"display_name":"姓名"',grade:'"grade":1到6或null',class_name:'"class_name":"班級原文或null"',seat_number:'"seat_number":座號數字或null',gender:'"gender":"男/女/其他或null"'};
   const shape=fields.map(f=>schema[f]).join(',');
-  return `你正在辨識台灣學校的紙本學生名單。這次只需要辨識：${selected}。\n請逐列讀取學生資料，忽略日期、出席勾選、補課註記、工作天數等非學生基本資料。\n只輸出 JSON 陣列，不要 Markdown、不加說明。每筆格式：{${shape},"confidence":0到1}。\n規則：\n1. 姓名必須保留繁體中文，姓名看不清楚就不要輸出那一列。\n2. 不要把序號欄當成座號；只有照片明確有座號欄時才填 seat_number。\n3. 班級請保留照片原文，例如 102、201、三甲。若班級是三位數代碼如 102、201、301，第一碼通常代表年級；只有本次有要求年級時才可據此填 grade。\n4. 沒有被要求辨識的欄位不要自行猜測。\n5. 一列一位學生，依照片由上到下排序。`;
+  return `你正在辨識台灣學校的紙本學生名單。這次只需要辨識：${selected}。\n請逐列讀取學生資料，忽略日期、出席勾選、補課註記、工作天數等非學生基本資料。\n只輸出 JSON 陣列，不要 Markdown、不加說明。每筆格式：{${shape},"confidence":0到1}。\n姓名必須保留繁體中文。不要把流水序號當成座號。班級代碼如 102、201、301 請保留原文；若有要求年級，可用第一碼推定年級。沒有被要求的欄位不要猜。`;
+}
+
+function fallbackPrompt(fields:FieldKey[]){
+  const labels:Record<FieldKey,string>={display_name:'姓名',grade:'年級',class_name:'班級',seat_number:'座號',gender:'性別'};
+  return `請只做文字抄錄，不要解釋。把這張台灣學生名單由上到下抄成多行。每行只放 ${fields.map(f=>labels[f]).join('、')}，欄位用 TAB 分隔。姓名一定要保留繁體中文。看不到的欄位留空。不要把最左側流水序號當座號。`;
+}
+
+async function runVision(AI:any,image:string,question:string,max_tokens=5000){
+  const result:any=await AI.run('@cf/moondream/moondream3.1-9B-A2B',{task:'query',image,question,reasoning:false,stream:false,temperature:0,max_tokens});
+  return String(result?.answer??result?.caption??'').trim();
 }
 
 export async function POST(request:Request){
   const supabase=await createClient();
   const {data:claims}=await supabase.auth.getClaims();
   if(!claims?.claims?.sub)return NextResponse.json({ok:false,error:'尚未登入'},{status:401});
-
   const {data:quotaData,error:quotaError}=await supabase.rpc('get_current_ocr_usage');
   if(quotaError)return NextResponse.json({ok:false,error:quotaError.message},{status:500});
   const quota=Array.isArray(quotaData)?quotaData[0]:quotaData;
-  if(quota?.monthly_limit!=null&&Number(quota.remaining??0)<=0){
-    return NextResponse.json({ok:false,code:'OCR_LIMIT_REACHED',error:`本月照片文字辨識額度已用完（${quota.used}/${quota.monthly_limit} 次）`},{status:429});
-  }
+  if(quota?.monthly_limit!=null&&Number(quota.remaining??0)<=0)return NextResponse.json({ok:false,code:'OCR_LIMIT_REACHED',error:`本月照片文字辨識額度已用完（${quota.used}/${quota.monthly_limit} 次）`},{status:429});
 
-  const formData=await request.formData();
-  const file=formData.get('image');
-  const fields=requestedFields(formData.get('fields'));
+  const formData=await request.formData(); const file=formData.get('image'); const fields=requestedFields(formData.get('fields'));
   if(!(file instanceof File))return NextResponse.json({ok:false,error:'請先選擇學生名單照片'},{status:400});
   if(!ALLOWED_TYPES.has(file.type))return NextResponse.json({ok:false,error:'目前支援 JPG、PNG、WebP 圖片'},{status:400});
   if(file.size>MAX_FILE_BYTES)return NextResponse.json({ok:false,error:'圖片過大，請壓縮至 6MB 以下'},{status:400});
 
   try{
-    const {env}=getCloudflareContext();
-    const AI=(env as any)?.AI;
+    const {env}=getCloudflareContext(); const AI=(env as any)?.AI;
     if(!AI)return NextResponse.json({ok:false,error:'照片辨識服務尚未連線，請稍後再試'},{status:503});
-
-    const bytes=new Uint8Array(await file.arrayBuffer());
-    let binary=''; const chunk=0x8000;
+    const bytes=new Uint8Array(await file.arrayBuffer()); let binary=''; const chunk=0x8000;
     for(let i=0;i<bytes.length;i+=chunk)binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
     const image=`data:${file.type};base64,${btoa(binary)}`;
-    const result:any=await AI.run('@cf/moondream/moondream3.1-9B-A2B',{
-      task:'query',image,question:fieldPrompt(fields),reasoning:false,stream:false,temperature:0,max_tokens:6000,
-    });
-    const answer=String(result?.answer??'').trim();
-    if(!answer)return NextResponse.json({ok:false,error:'辨識服務沒有讀出文字，請重新拍攝並讓名單文字盡量佔滿畫面'},{status:422});
-    let rows;
-    try{rows=parseJsonRows(answer);}catch(parseError:any){
-      console.error('ocr parse failed',{answer:answer.slice(0,1500),parseError:String(parseError?.message??parseError)});
-      return NextResponse.json({ok:false,code:'OCR_PARSE_FAILED',error:'照片其實有讀到，但名單整理失敗。已記錄這次格式，請再試一次；若仍失敗可直接把畫面截圖給我們。'},{status:422});
+
+    let answer=await runVision(AI,image,fieldPrompt(fields),6000);
+    let rows=parseJsonRows(answer);
+    let method='json';
+    if(!rows.length){
+      const fallback=await runVision(AI,image,fallbackPrompt(fields),4500);
+      rows=parseJsonRows(fallback);
+      if(!rows.length)rows=parsePlainRows(fallback,fields);
+      answer=fallback; method='fallback';
     }
-    rows=rows.map((row:any)=>({
-      ...row,
-      grade:fields.includes('grade')?row.grade:null,
-      class_name:fields.includes('class_name')?row.class_name:null,
-      seat_number:fields.includes('seat_number')?row.seat_number:null,
-      gender:fields.includes('gender')?row.gender:null,
-    }));
-    if(!rows.length)return NextResponse.json({ok:false,error:'沒有從照片中辨識到學生。請確認已勾選正確欄位，並讓姓名與班級文字清楚佔滿畫面。'},{status:422});
+    rows=rows.map((row:any)=>({...row,grade:fields.includes('grade')?row.grade:null,class_name:fields.includes('class_name')?row.class_name:null,seat_number:fields.includes('seat_number')?row.seat_number:null,gender:fields.includes('gender')?row.gender:null}));
+    if(!rows.length){console.error('ocr no rows',{answer:answer.slice(0,1800),fields});return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'辨識服務有收到照片，但仍沒有整理出學生姓名。請先只勾「姓名」再試一次；若仍失敗，請把這張畫面截圖給我們。'},{status:422});}
 
     const {data:consumeData,error:consumeError}=await supabase.rpc('consume_ocr_import');
     if(consumeError)return NextResponse.json({ok:false,error:consumeError.message},{status:500});
     const consumed=Array.isArray(consumeData)?consumeData[0]:consumeData;
     if(!consumed?.allowed)return NextResponse.json({ok:false,code:'OCR_LIMIT_REACHED',error:'本月照片文字辨識額度已用完'},{status:429});
-
-    return NextResponse.json({ok:true,rows,fields,quota:{used:Number(consumed.used??0),monthlyLimit:consumed.monthly_limit==null?null:Number(consumed.monthly_limit),remaining:consumed.remaining==null?null:Number(consumed.remaining)}});
+    return NextResponse.json({ok:true,rows,fields,method,quota:{used:Number(consumed.used??0),monthlyLimit:consumed.monthly_limit==null?null:Number(consumed.monthly_limit),remaining:consumed.remaining==null?null:Number(consumed.remaining)}});
   }catch(error:any){
-    console.error('ocr-students recognize failed',error);
-    const message=String(error?.message??'');
+    console.error('ocr-students recognize failed',error); const message=String(error?.message??'');
     if(message.toLowerCase().includes('image'))return NextResponse.json({ok:false,error:'照片格式或尺寸無法辨識，請重新拍攝或換一張照片再試。'},{status:500});
     return NextResponse.json({ok:false,error:'照片辨識服務暫時失敗，這次不會扣使用次數，請稍後再試一次。'},{status:500});
   }
