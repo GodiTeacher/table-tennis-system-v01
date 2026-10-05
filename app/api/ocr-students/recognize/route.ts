@@ -51,7 +51,7 @@ function parseRows(text:string,fields:FieldKey[]):Row[]{
     }catch{}
   }
 
-  const banned=new Set(['姓名','學生','名單','班級','年級','座號','性別','日期','補課','課後','工作天','男','女']);
+  const banned=new Set(['姓名','學生','名單','班級','年級','座號','性別','日期','補課','課後','工作天','男','女','圖片','照片','文字','表格','內容']);
   const rows:Row[]=[];
   for(const raw of cleaned.split(/\r?\n/)){
     const line=raw.replace(/^\s*[-*•#\d.、)）]+\s*/,'').trim();
@@ -78,15 +78,15 @@ function parseRows(text:string,fields:FieldKey[]):Row[]{
 }
 
 function promptFor(fields:FieldKey[]){
-  if(fields.length===1)return '從下面的 OCR 文字中，只找出台灣學生姓名。只輸出 JSON 陣列，格式 [{"display_name":"王小明","confidence":0.95}]。不要輸出班級、數字、性別、日期、註記或說明。';
+  if(fields.length===1)return '這是一張台灣學生名單照片。只讀學生姓名欄，由上到下逐行輸出繁體中文姓名，每行一個。不要輸出數字、班級、座號、性別、日期、註記或任何解釋。';
   const labels:Record<FieldKey,string>={display_name:'姓名',grade:'年級',class_name:'班級',seat_number:'座號',gender:'性別'};
   const selected=fields.map(f=>labels[f]).join('、');
-  return `從下面的 OCR 文字中整理學生資料，只抓：${selected}。只輸出 JSON 陣列。欄位使用 display_name、grade、class_name、seat_number、gender、confidence。不要把最左側流水號當座號。班級如 102/201/301 請保留原文，若有要求年級可用第一碼推定。`;
+  return `這是一張台灣學生名單照片。只辨識：${selected}。由上到下逐列輸出，每列欄位用 TAB 分隔。不要輸出日期、出席、補課等其他內容。姓名保留繁體中文；最左側流水號不是座號。`;
 }
 
-async function withTimeout<T>(promise:Promise<T>,ms:number):Promise<T>{
+async function withTimeout<T>(promise:Promise<T>,ms:number,label='AI_TIMEOUT'):Promise<T>{
   let timer:ReturnType<typeof setTimeout>|undefined;
-  try{return await Promise.race([promise,new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error('AI_TIMEOUT')),ms);})]);}
+  try{return await Promise.race([promise,new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(label)),ms);})]);}
   finally{if(timer)clearTimeout(timer);}
 }
 
@@ -118,40 +118,57 @@ export async function POST(request:Request){
     if(!AI)return NextResponse.json({ok:false,error:'照片辨識服務尚未連線，請稍後再試'},{status:503});
 
     const started=Date.now();
-    let extracted='';
-    try{
-      const converted:any=await withTimeout(AI.toMarkdown({name:file.name||'student-roster.jpg',blob:file},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),10000);
-      extracted=extractConvertedText(converted);
-    }catch(error:any){
-      const timedOut=String(error?.message??'')==='AI_TIMEOUT';
-      console.error('toMarkdown OCR failed',{timedOut,error:String(error?.message??error),elapsed:Date.now()-started});
-      return NextResponse.json({ok:false,code:timedOut?'OCR_TIMEOUT':'OCR_ENGINE_FAILED',error:timedOut?'文件辨識超過 10 秒，系統已停止。這次不扣使用次數，請再試一次。':'文件辨識引擎目前沒有正常回應。這次不扣使用次數，請再試一次。'},{status:504});
+    const bytes=new Uint8Array(await file.arrayBuffer());
+    let binary='';
+    for(let i=0;i<bytes.length;i+=0x8000)binary+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+    const image=`data:${file.type};base64,${btoa(binary)}`;
+
+    const documentPromise=withTimeout(
+      AI.toMarkdown({name:file.name||'student-roster.jpg',blob:new Blob([bytes],{type:file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),
+      30000,
+      'DOCUMENT_TIMEOUT',
+    ).then((value:any)=>({engine:'document',text:extractConvertedText(value),error:''})).catch((error:any)=>({engine:'document',text:'',error:String(error?.message??error)}));
+
+    const visionPromise=withTimeout(
+      AI.run('@cf/moondream/moondream3.1-9B-A2B',{
+        task:'query',image,question:promptFor(fields),reasoning:false,stream:false,temperature:0,max_tokens:2600,
+      }),
+      22000,
+      'VISION_TIMEOUT',
+    ).then((value:any)=>({engine:'vision',text:String(value?.answer??value?.caption??'').trim(),error:''})).catch((error:any)=>({engine:'vision',text:'',error:String(error?.message??error)}));
+
+    const results=await Promise.all([documentPromise,visionPromise]);
+    let rows:Row[]=[]; let method=''; let bestText='';
+    for(const result of results){
+      if(result.text&&result.text.length>bestText.length)bestText=result.text;
+      if(!result.text)continue;
+      const parsed=parseRows(result.text,fields);
+      if(parsed.length>rows.length){rows=parsed;method=result.engine==='document'?'tomarkdown':'moondream-ocr';}
     }
 
-    if(!extracted)return NextResponse.json({ok:false,code:'OCR_EMPTY',error:'文件辨識引擎沒有讀到文字。這次不扣使用次數，請再試一次。'},{status:422});
-
-    let rows=parseRows(extracted,fields);
-    let method='tomarkdown-direct';
-
-    if(!rows.length){
+    if(!rows.length&&bestText){
       try{
-        const result:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{
+        const cleanResult:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{
           messages:[
-            {role:'system',content:'你是台灣學生名單資料整理助手，只能根據提供的 OCR 文字整理，不可自行猜測。'},
-            {role:'user',content:`${promptFor(fields)}\n\nOCR文字：\n${extracted.slice(0,12000)}`},
+            {role:'system',content:'你是台灣學生名單文字整理助手。只能根據提供文字整理，不可自行新增姓名。'},
+            {role:'user',content:`請從以下 OCR 結果只整理出學生姓名，由上到下每行一個繁體中文姓名，不要任何說明。\n\n${bestText.slice(0,12000)}`},
           ],
-          max_tokens:2500,
+          max_tokens:1800,
           temperature:0,
-        }),7000);
-        const answer=String(result?.response??result?.answer??result?.text??result?.result??'').trim();
-        rows=parseRows(answer,fields);
-        if(rows.length)method='tomarkdown-gemma-cleanup';
-      }catch(error){console.error('OCR cleanup model failed',error);}
+        }),8000,'CLEANUP_TIMEOUT');
+        const cleaned=String(cleanResult?.response??cleanResult?.answer??cleanResult?.text??cleanResult?.result??'').trim();
+        rows=parseRows(cleaned,fields);
+        if(rows.length)method='ocr-ai-cleanup';
+      }catch(error){console.error('OCR cleanup failed',error);}
     }
 
     if(!rows.length){
-      console.error('OCR text but no student rows',{elapsed:Date.now()-started,preview:extracted.slice(0,1200),fields});
-      return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'系統已讀到圖片文字，但仍沒有整理出學生姓名。這次不扣使用次數；請把這個訊息截圖給我們。'},{status:422});
+      const documentTimedOut=results[0].error==='DOCUMENT_TIMEOUT';
+      const visionTimedOut=results[1].error==='VISION_TIMEOUT';
+      console.error('OCR no rows',{elapsed:Date.now()-started,documentError:results[0].error,visionError:results[1].error,preview:bestText.slice(0,800),fields});
+      if(documentTimedOut&&visionTimedOut)return NextResponse.json({ok:false,code:'OCR_TIMEOUT',error:'辨識等待 30 秒仍未完成，系統已停止。這次不扣使用次數。'},{status:504});
+      if(!bestText)return NextResponse.json({ok:false,code:'OCR_EMPTY',error:'兩個辨識引擎都沒有讀出文字。這次不扣使用次數。'},{status:422});
+      return NextResponse.json({ok:false,code:'OCR_NO_ROWS',error:'系統已讀到部分圖片文字，但仍沒有整理出可靠的學生姓名。這次不扣使用次數。'},{status:422});
     }
 
     const {data:consumeData,error:consumeError}=await supabase.rpc('consume_ocr_import');
