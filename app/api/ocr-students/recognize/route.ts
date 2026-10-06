@@ -60,7 +60,7 @@ export async function POST(request:Request){
       }catch{}
       let rows=parseNames(visionText);
       if(rows.length<3){
-        try{const value:any=await withTimeout(AI.toMarkdown({name:`roster-part-${index+1}.jpg`,blob:new Blob([p.bytes],{type:p.file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),18000,'DOCUMENT_TIMEOUT');documentText=extractConvertedText(value);}catch{}
+        try{const value:any=await withTimeout(AI.toMarkdown({name:`roster-part-${index+1}.jpg`,blob:new Blob([p.bytes.buffer.slice(p.bytes.byteOffset,p.bytes.byteOffset+p.bytes.byteLength) as ArrayBuffer],{type:p.file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),18000,'DOCUMENT_TIMEOUT');documentText=extractConvertedText(value);}catch{}
         const docRows=parseNames(documentText);
         if(docRows.length)rows=dedupe([...rows,...docRows]);
       }
