@@ -49,22 +49,33 @@ export async function POST(request:Request){
   try{
     const {env}=getCloudflareContext();const AI=(env as any)?.AI;if(!AI)return NextResponse.json({ok:false,error:'照片辨識服務尚未連線，請稍後再試'},{status:503});
     const started=Date.now();
-    const prepared=await Promise.all(files.map(async file=>{const bytes=new Uint8Array(await file.arrayBuffer());return {file,bytes,image:toDataUri(bytes,file.type)};}));
+    const prepared=await Promise.all(files.map(async file=>({file,bytes:new Uint8Array(await file.arrayBuffer())})));
 
-    const segmentResults=await Promise.all(prepared.map(async(p,index)=>{
+    async function processSegment(p:{file:File;bytes:Uint8Array},index:number){
       let visionText='';let documentText='';
-      try{const value:any=await withTimeout(AI.run('@cf/moondream/moondream3.1-9B-A2B',{task:'query',image:p.image,question:prompt(index+1,prepared.length),reasoning:false,stream:false,temperature:0,max_tokens:900}),15000,'VISION_TIMEOUT');visionText=String(value?.answer??value?.caption??'').trim();}catch{}
+      try{
+        const image=toDataUri(p.bytes,p.file.type);
+        const value:any=await withTimeout(AI.run('@cf/moondream/moondream3.1-9B-A2B',{task:'query',image,question:prompt(index+1,prepared.length),reasoning:false,stream:false,temperature:0,max_tokens:900}),15000,'VISION_TIMEOUT');
+        visionText=String(value?.answer??value?.caption??'').trim();
+      }catch{}
       let rows=parseNames(visionText);
       if(rows.length<3){
         try{const value:any=await withTimeout(AI.toMarkdown({name:`roster-part-${index+1}.jpg`,blob:new Blob([p.bytes],{type:p.file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),18000,'DOCUMENT_TIMEOUT');documentText=extractConvertedText(value);}catch{}
         const docRows=parseNames(documentText);
-        if(docRows.length){rows=dedupe([...rows,...docRows]);}
+        if(docRows.length)rows=dedupe([...rows,...docRows]);
       }
       if(rows.length<2&&(visionText||documentText)){
         try{const source=`${visionText}\n${documentText}`.slice(0,4000);const cleaned:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{messages:[{role:'system',content:'你只負責從 OCR 文字找出台灣學生姓名，不得新增不存在的人名。'},{role:'user',content:`從以下文字只列出學生姓名，一行一個，保持原順序。排除標題與工作表名稱。\n${source}`}],temperature:0,max_tokens:700}),6000,'CLEANUP_TIMEOUT');rows=dedupe([...rows,...parseNames(String(cleaned?.response??cleaned?.answer??cleaned?.text??''))]);}catch{}
       }
       return {index,rows,raw:[visionText,documentText].filter(Boolean).join('\n')};
-    }));
+    }
+
+    const segmentResults:Array<{index:number;rows:Row[];raw:string}>=[];
+    for(let i=0;i<prepared.length;i+=2){
+      const batch=prepared.slice(i,i+2);
+      const done=await Promise.all(batch.map((p,offset)=>processSegment(p,i+offset)));
+      segmentResults.push(...done);
+    }
 
     const ordered=segmentResults.sort((a,b)=>a.index-b.index).flatMap(r=>r.rows);
     let rows=dedupe(ordered);
