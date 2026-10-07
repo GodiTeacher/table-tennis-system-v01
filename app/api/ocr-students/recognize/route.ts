@@ -3,7 +3,7 @@ import {createClient} from '@/lib/supabase/server';
 import {getCloudflareContext} from '@opennextjs/cloudflare';
 
 const MAX_FILE_BYTES=6*1024*1024;
-const MAX_IMAGES=8;
+const MAX_IMAGES=4;
 const ALLOWED_TYPES=new Set(['image/jpeg','image/png','image/webp']);
 type Row={display_name:string;grade:null;class_name:null;seat_number:null;gender:null;confidence:number|null};
 
@@ -51,30 +51,27 @@ export async function POST(request:Request){
     const started=Date.now();
     const prepared=await Promise.all(files.map(async file=>({file,bytes:new Uint8Array(await file.arrayBuffer())})));
 
-    async function processSegment(p:{file:File;bytes:Uint8Array},index:number){
-      let visionText='';let documentText='';
+    async function runVision(p:{file:File;bytes:Uint8Array},index:number){
       try{
         const image=toDataUri(p.bytes,p.file.type);
-        const value:any=await withTimeout(AI.run('@cf/moondream/moondream3.1-9B-A2B',{task:'query',image,question:prompt(index+1,prepared.length),reasoning:false,stream:false,temperature:0,max_tokens:900}),15000,'VISION_TIMEOUT');
-        visionText=String(value?.answer??value?.caption??'').trim();
-      }catch{}
-      let rows=parseNames(visionText);
-      if(rows.length<3){
-        try{const value:any=await withTimeout(AI.toMarkdown({name:`roster-part-${index+1}.jpg`,blob:new Blob([p.bytes.buffer.slice(p.bytes.byteOffset,p.bytes.byteOffset+p.bytes.byteLength) as ArrayBuffer],{type:p.file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),18000,'DOCUMENT_TIMEOUT');documentText=extractConvertedText(value);}catch{}
-        const docRows=parseNames(documentText);
-        if(docRows.length)rows=dedupe([...rows,...docRows]);
-      }
-      if(rows.length<2&&(visionText||documentText)){
-        try{const source=`${visionText}\n${documentText}`.slice(0,4000);const cleaned:any=await withTimeout(AI.run('@cf/google/gemma-4-26b-a4b-it',{messages:[{role:'system',content:'你只負責從 OCR 文字找出台灣學生姓名，不得新增不存在的人名。'},{role:'user',content:`從以下文字只列出學生姓名，一行一個，保持原順序。排除標題與工作表名稱。\n${source}`}],temperature:0,max_tokens:700}),6000,'CLEANUP_TIMEOUT');rows=dedupe([...rows,...parseNames(String(cleaned?.response??cleaned?.answer??cleaned?.text??''))]);}catch{}
-      }
-      return {index,rows,raw:[visionText,documentText].filter(Boolean).join('\n')};
+        const value:any=await withTimeout(AI.run('@cf/moondream/moondream3.1-9B-A2B',{task:'query',image,question:prompt(index+1,prepared.length),reasoning:false,stream:false,temperature:0,max_tokens:900}),14000,'VISION_TIMEOUT');
+        const raw=String(value?.answer??value?.caption??'').trim();
+        return {index,rows:parseNames(raw),raw};
+      }catch{return {index,rows:[] as Row[],raw:''};}
     }
 
-    const segmentResults:Array<{index:number;rows:Row[];raw:string}>=[];
-    for(let i=0;i<prepared.length;i+=2){
-      const batch=prepared.slice(i,i+2);
-      const done=await Promise.all(batch.map((p,offset)=>processSegment(p,i+offset)));
-      segmentResults.push(...done);
+    let segmentResults=await Promise.all(prepared.map((p,index)=>runVision(p,index)));
+
+    let previewRows=dedupe(segmentResults.sort((x,y)=>x.index-y.index).flatMap(r=>r.rows));
+    if(previewRows.length<Math.min(4,prepared.length*2)){
+      const docs=await Promise.all(prepared.map(async(p,index)=>{
+        try{
+          const value:any=await withTimeout(AI.toMarkdown({name:`roster-part-${index+1}.jpg`,blob:new Blob([p.bytes.buffer.slice(p.bytes.byteOffset,p.bytes.byteOffset+p.bytes.byteLength) as ArrayBuffer],{type:p.file.type})},{conversionOptions:{output:{format:'text'},image:{descriptionLanguage:'zh-TW'}}}),16000,'DOCUMENT_TIMEOUT');
+          const raw=extractConvertedText(value);
+          return {index,rows:parseNames(raw),raw};
+        }catch{return {index,rows:[] as Row[],raw:''};}
+      }));
+      segmentResults=segmentResults.map((r,index)=>({index:r.index,rows:dedupe([...r.rows,...docs[index].rows]),raw:[r.raw,docs[index].raw].filter(Boolean).join('\n')}));
     }
 
     const ordered=segmentResults.sort((a,b)=>a.index-b.index).flatMap(r=>r.rows);
