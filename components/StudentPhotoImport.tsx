@@ -21,7 +21,7 @@ async function makeRecognitionParts(file:File,crop:Crop){
   const sx=Math.max(0,Math.round(bitmap.width*crop.x/100));const sy=Math.max(0,Math.round(bitmap.height*crop.y/100));
   const sw=Math.max(1,Math.min(bitmap.width-sx,Math.round(bitmap.width*crop.w/100)));const sh=Math.max(1,Math.min(bitmap.height-sy,Math.round(bitmap.height*crop.h/100)));
   const ratio=sh/sw;
-  const parts=ratio>5.2?8:ratio>4.2?7:ratio>3.2?6:ratio>2.35?5:ratio>1.55?4:3;
+  const parts=ratio>3.2?4:ratio>2.1?3:2;
   const segmentH=sh/parts;const overlap=Math.max(8,Math.round(segmentH*.16));
   const result:File[]=[];
   for(let i=0;i<parts;i++){
@@ -60,11 +60,11 @@ export default function StudentPhotoImport({importAction}:{importAction:(formDat
     try{
       const parts=await makeRecognitionParts(file,crop);if(!parts.length)throw new Error('無法建立辨識圖片，請重新選擇照片');
       const fd=new FormData();parts.forEach(p=>fd.append('images',p));fd.set('fields',JSON.stringify(['display_name']));
-      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),50000);
+      const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),35000);
       const res=await fetch('/api/ocr-students/recognize',{method:'POST',body:fd,signal:controller.signal});clearTimeout(timer);
       const data=await res.json().catch(()=>({ok:false,error:'辨識服務回傳格式異常'}));if(!res.ok||!data.ok)throw new Error(data.error||'辨識失敗');
       setProgress(100);setProgressText('辨識完成');setRows(data.rows??[]);if(data.quota)setQuota(data.quota);
-    }catch(e:any){setError(e?.name==='AbortError'?'辨識超過 50 秒，已停止。這次不扣使用次數，請把框選範圍縮小後再試。':(e?.message||'辨識失敗'));}finally{setTimeout(()=>{setBusy(false);setProgress(0);setProgressText('');},250);}
+    }catch(e:any){setError(e?.name==='AbortError'?'辨識超過 35 秒，已停止。這次不扣使用次數，請把框選範圍縮小後再試。':(e?.message||'辨識失敗'));}finally{setTimeout(()=>{setBusy(false);setProgress(0);setProgressText('');},250);}
   }
   function patch(i:number,value:string){setRows(rows=>rows.map((r,idx)=>idx===i?{...r,display_name:value}:r));}
 
@@ -78,8 +78,8 @@ export default function StudentPhotoImport({importAction}:{importAction:(formDat
         <div className="photoPickArea">
           {preview?<><div className="cropHelp"><b>框選姓名欄</b><span>{cropTouched?'已框選，可重新拖曳調整':'請直接在照片上拖曳，只框姓名'}</span><button type="button" onClick={resetCrop}>辨識整張</button></div><div ref={cropRef} className="cropStage" onPointerDown={cropStart} onPointerMove={cropMove} onPointerUp={cropEnd} onPointerCancel={cropEnd}><img src={preview} alt="學生名單預覽" draggable={false}/><div className="cropShade"/><div className="cropBox" style={{left:`${crop.x}%`,top:`${crop.y}%`,width:`${crop.w}%`,height:`${crop.h}%`}}><span>姓名辨識範圍</span></div></div></>:<div className="photoPlaceholder">📄<b>請拍攝或選擇學生名單</b><small>選好後直接框住姓名欄即可</small></div>}
           <div className="photoSourceActions"><label className="secondaryButton">🖼️ 從相簿選擇<input hidden type="file" accept="image/*" onChange={e=>choose(e.target.files?.[0]??null)}/></label><label className="secondaryButton">📷 直接拍照<input hidden type="file" accept="image/*" capture="environment" onChange={e=>choose(e.target.files?.[0]??null)}/></label></div>
-          {file&&!cropTouched?<div className="cropTip">💡 建議先框住姓名欄；系統會自動切成更多小段、放大後並行辨識。</div>:null}
-          {busy?<div className="recognitionProgress"><div className="recognitionProgressTop"><b>{progressText||'辨識中…'}</b><span>{progress}%</span></div><div className="recognitionProgressTrack"><i style={{width:`${progress}%`}}/></div><small>長姓名欄會自動切成 3～8 段，重疊辨識後再合併去重。</small></div>:null}
+          {file&&!cropTouched?<div className="cropTip">💡 建議先框住姓名欄；系統會自動切成 2～4 段、放大後同時辨識。</div>:null}
+          {busy?<div className="recognitionProgress"><div className="recognitionProgressTop"><b>{progressText||'辨識中…'}</b><span>{progress}%</span></div><div className="recognitionProgressTrack"><i style={{width:`${progress}%`}}/></div><small>長姓名欄會自動切成 2～4 段，同時辨識後再合併去重。</small></div>:null}
           <div className="photoActions"><button className="primaryButton" disabled={!file||busy||quota?.remaining===0} onClick={recognize}>{busy?'辨識中…':'開始辨識姓名'}</button></div>
         </div>
       </>:<form action={importAction} className="photoReviewForm">
