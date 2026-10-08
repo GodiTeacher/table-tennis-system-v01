@@ -4,13 +4,14 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build --webpack",
+    "build": "echo \"Build handled by OpenNext during deploy\"",
     "start": "next start",
     "dev:vinext": "vinext dev",
     "build:vinext": "vinext build",
     "check:vinext": "vinext check",
-    "build:worker": "opennextjs-cloudflare build --skipNextBuild",
-    "deploy": "opennextjs-cloudflare build --skipNextBuild && opennextjs-cloudflare deploy"
+    "build:worker": "opennextjs-cloudflare build",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "build:next": "next build --webpack"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
