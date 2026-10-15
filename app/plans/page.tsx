@@ -12,6 +12,7 @@ const rows=[
   ['PDF','基本模板','自訂 Logo／欄位／版型'],
   ['進階比賽管理','—','✓'],
   ['財務／教練薪酬','—','✓'],
+  ['NFC 智慧儲值','—','✓'],
   ['器材／庫存管理','—','✓'],
   ['進階統計分析','—','✓'],
   ['多人教練協作','—','✓'],
@@ -26,6 +27,7 @@ const LOCKED_LABELS:Record<string,string>={
   advanced_analytics:'進階統計／點數管理',
   custom_pdf:'自訂 PDF',
   multi_coach:'多人教練協作',
+  nfc_wallet:'NFC 智慧儲值',
 };
 
 export default async function PlansPage({searchParams}:{searchParams:Promise<{locked?:string}>}){
