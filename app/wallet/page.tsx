@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {getCurrentTeamEntitlements,hasPlanFeature} from '@/lib/subscription-server';
-import {bindNfcCard,chargeWallet,disableNfcCard,topUpWallet} from './actions';
+import {bindNfcCard,chargeWallet,disableNfcCard,reverseWalletTransaction,topUpWallet} from './actions';
 
 type Student={id:string;display_name:string;grade:number|null;class_name:string|null;seat_number:number|null};
 type Wallet={id:string;student_id:string;balance:number;total_top_up:number;total_charge:number;status:string};
@@ -39,6 +39,7 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
   const canTopUp=admin||Boolean(membership.permissions?.wallet_top_up);
   const canCharge=admin||Boolean(membership.permissions?.wallet_charge);
   const canManageNfc=admin||Boolean(membership.permissions?.nfc_manage);
+  const canReverse=admin||Boolean(membership.permissions?.wallet_reverse);
 
   const q=(params.q??'').trim().toLocaleLowerCase('zh-Hant');
   const visible=q?students.filter(s=>(s.display_name+' '+(s.grade??'')+' '+(s.class_name??'')+' '+(s.seat_number??'')).toLocaleLowerCase('zh-Hant').includes(q)):students;
@@ -57,7 +58,7 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
       <div className="eyebrow">NFC WALLET V1</div>
       <h1>NFC 智慧儲值</h1>
       <p>先用手動搜尋測試錢包、儲值與扣款；NTAG213 到貨後再接上感應入口。</p>
-      <div className="topNav"><Link href="/more">返回更多</Link><Link href="/students">學生名單</Link></div>
+      <div className="topNav"><Link href="/more">返回更多</Link><Link href="/students">學生名單</Link><Link href="/wallet-report">交易報表</Link></div>
     </section>
 
     {params.message?<div className="notice successNotice">✓ {params.message}</div>:null}
@@ -133,7 +134,15 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
         {studentTxs.map(t=><article key={t.id}>
           <div className={'txIcon '+t.transaction_type}>{t.transaction_type==='top_up'?'+':t.transaction_type==='charge'?'−':'↺'}</div>
           <div className="txText"><b>{typeText[t.transaction_type]??t.transaction_type}{t.category_id&&categoryMap.get(t.category_id)?' · '+categoryMap.get(t.category_id):''}</b><small>交易 #{t.transaction_no} · {new Date(t.created_at).toLocaleString('zh-TW')}</small>{t.note?<p>{t.note}</p>:null}</div>
-          <div className="txAmount"><strong>{t.transaction_type==='charge'?'-':'+'}{money(Number(t.amount)).replace('NT$','')}</strong><small>餘額 {money(Number(t.balance_after))}</small>{t.status==='reversed'?<em>已沖正</em>:null}</div>
+          <div className="txAmount"><strong>{t.transaction_type==='charge'?'-':'+'}{money(Number(t.amount)).replace('NT
+        </article>)}
+      </div>}
+    </section></>:null}
+
+    <style>{'.walletShell{max-width:960px}.walletSearch{display:flex;gap:8px;margin-bottom:12px}.walletSearch input{flex:1;min-width:0;padding:11px 12px;border:1px solid #dce2e8;border-radius:12px;font:inherit}.studentPicker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:280px;overflow:auto}.studentPicker a{display:flex;flex-direction:column;gap:2px;padding:10px 11px;border:1px solid #e2e7ed;border-radius:12px;text-decoration:none;color:#263244;background:#fff}.studentPicker a.active{border-color:var(--theme-accent,#7c3aed);background:var(--theme-soft,#f5f3ff)}.studentPicker small{color:#7c8796;font-size:10px}.walletHeroCard{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:center;margin:14px 0;padding:18px;border-radius:22px;background:linear-gradient(135deg,#18202d,#344158);color:#fff}.walletHeroCard span{font-size:10px;letter-spacing:.08em;color:#cbd5e1}.walletHeroCard h2{margin:4px 0;font-size:25px}.walletHeroCard small{color:#cbd5e1}.balanceBox{text-align:right}.balanceBox strong{display:block;font-size:36px;line-height:1.1;margin:5px 0}.walletActionsGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.walletForm{display:grid;grid-template-columns:1fr 1fr;gap:9px}.walletForm label{font-size:11px;font-weight:900;color:#667386}.walletForm input,.walletForm select{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.walletForm .wide{grid-column:1/-1}.permissionNote{margin:10px 0 0;padding:9px 11px;border-radius:10px;background:#fff7ed;color:#9a5a24;font-size:11px}.txList{display:grid;gap:8px}.txList article{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;padding:11px;border:1px solid #e5e9ee;border-radius:14px}.txIcon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:950;background:#eef2f6}.txIcon.top_up{background:#eaf8f0;color:#238454}.txIcon.charge{background:#fff1ee;color:#c34b3f}.txText{min-width:0}.txText small,.txAmount small{display:block;color:#7b8795;font-size:10px;margin-top:2px}.txText p{margin:4px 0 0;color:#607083;font-size:11px}.txAmount{text-align:right}.txAmount strong{font-size:16px}.reverseForm{margin-top:6px}.reverseForm button{font-size:10px;padding:5px 8px}.txAmount em{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:999px;background:#eef2f6;color:#6b7280;font-size:9px;font-style:normal}.newCardBox{display:grid;gap:7px;margin:10px 0;padding:12px;border-radius:14px;background:#eefaf4;border:1px solid #ccebd9}.newCardBox code{display:block;overflow-wrap:anywhere;padding:9px;border-radius:9px;background:#fff;font-size:11px}.newCardBox p{margin:0;color:#617263;font-size:11px}.nfcCurrent{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid #e2e7ed;border-radius:14px}.nfcCurrent>div:first-child{display:flex;flex-direction:column;gap:3px}.nfcCurrent small{color:#7b8795;font-size:10px}.nfcButtons{display:flex;gap:7px}.bindCardForm{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:10px}.bindCardForm label{font-size:11px;font-weight:900;color:#667386}.bindCardForm input{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.cardHistory{margin-top:12px}.cardHistory summary{cursor:pointer;font-size:11px;font-weight:800;color:#657285}.cardHistory div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #eef1f4;font-size:11px}.cardHistory small{color:#7b8795}@media(max-width:760px){.studentPicker{grid-template-columns:repeat(2,1fr)}.walletHeroCard,.walletActionsGrid{grid-template-columns:1fr}.balanceBox{text-align:left}.walletForm{grid-template-columns:1fr}.walletForm .wide{grid-column:auto}.walletSearch{flex-wrap:wrap}.nfcCurrent{align-items:flex-start;flex-direction:column}.nfcButtons{width:100%}.nfcButtons form{flex:1}.nfcButtons button{width:100%}.bindCardForm{grid-template-columns:1fr}.walletSearch input{flex-basis:100%}}@media(max-width:440px){.studentPicker{grid-template-columns:1fr}.txList article{grid-template-columns:auto 1fr}.txAmount{grid-column:2;text-align:left}.balanceBox strong{font-size:31px}}'}</style>
+  </main>;
+}
+,'')}</strong><small>餘額 {money(Number(t.balance_after))}</small>{t.status==='reversed'?<em>已沖正</em>:null}{canReverse&&t.status==='posted'&&(t.transaction_type==='top_up'||t.transaction_type==='charge')?<form action={reverseWalletTransaction} className="reverseForm"><input type="hidden" name="student_id" value={selected.id}/><input type="hidden" name="transaction_id" value={t.id}/><input type="hidden" name="note" value="誤登沖正"/><button className="dangerButton">沖正</button></form>:null}</div>
         </article>)}
       </div>}
     </section></>:null}
