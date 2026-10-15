@@ -24,22 +24,26 @@ const VALID_THEMES = new Set(["current", "clean", "teaching", "competitive", "su
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const cookieStore = await cookies();
   const savedTheme = cookieStore.get("ui-theme")?.value;
-  let theme = savedTheme && VALID_THEMES.has(savedTheme) ? savedTheme : "current";
-  let shouldBootstrap = !savedTheme;
+  const validCookieTheme = savedTheme && VALID_THEMES.has(savedTheme) ? savedTheme : null;
+  let theme = validCookieTheme ?? "current";
 
-  if (!savedTheme) {
-    try {
-      const supabase = await createClient();
-      const { data: claims } = await supabase.auth.getClaims();
-      const userId = claims?.claims?.sub;
-      if (userId) {
-        const { data: profile } = await supabase.from("profiles").select("theme_preference").eq("id", userId).single();
-        if (profile?.theme_preference && VALID_THEMES.has(profile.theme_preference)) theme = profile.theme_preference;
+  // For signed-in users, the profile setting is the source of truth.
+  // The cookie is only a fast bootstrap/fallback and is resynced when stale.
+  try {
+    const supabase = await createClient();
+    const { data: claims } = await supabase.auth.getClaims();
+    const userId = claims?.claims?.sub;
+    if (userId) {
+      const { data: profile } = await supabase.from("profiles").select("theme_preference").eq("id", userId).single();
+      if (profile?.theme_preference && VALID_THEMES.has(profile.theme_preference)) {
+        theme = profile.theme_preference;
       }
-    } catch {
-      theme = "current";
     }
+  } catch {
+    theme = validCookieTheme ?? "current";
   }
+
+  const shouldBootstrap = validCookieTheme !== theme;
 
   return (
     <html lang="zh-Hant">
