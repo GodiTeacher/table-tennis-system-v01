@@ -16,6 +16,10 @@ function friendlyWalletError(message:string){
   if(message.includes('PRO_FEATURE_REQUIRED'))return 'NFC 智慧儲值屬於菁英版功能。';
   if(message.includes('WALLET_TOP_UP_DENIED'))return '目前帳號沒有儲值權限。';
   if(message.includes('WALLET_CHARGE_DENIED'))return '目前帳號沒有扣款權限。';
+  if(message.includes('WALLET_REVERSE_DENIED'))return '目前帳號沒有沖正權限。';
+  if(message.includes('TRANSACTION_ALREADY_REVERSED'))return '這筆交易已經沖正，不能重複處理。';
+  if(message.includes('TRANSACTION_NOT_REVERSIBLE'))return '這筆交易不能沖正。';
+  if(message.includes('REVERSAL_WOULD_NEGATIVE'))return '沖正後會造成負餘額，因此無法執行。';
   if(message.includes('INSUFFICIENT_BALANCE'))return '餘額不足，無法完成扣款。';
   if(message.includes('WALLET_NOT_ACTIVE'))return '此學生錢包目前不是啟用狀態。';
   if(message.includes('INVALID_CATEGORY'))return '消費類別無效或已停用。';
@@ -95,4 +99,24 @@ export async function disableNfcCard(formData:FormData){
   }
   revalidatePath('/wallet');
   redirect(walletUrl(studentId,status==='lost'?'已將卡片標記為遺失。':'已停用卡片。'));
+}
+
+
+export async function reverseWalletTransaction(formData:FormData){
+  const studentId=String(formData.get('student_id')??'').trim();
+  const transactionId=String(formData.get('transaction_id')??'').trim();
+  const note=String(formData.get('note')??'').trim();
+  if(!studentId||!transactionId)redirect('/wallet?error='+encodeURIComponent('交易資料不完整'));
+
+  const supabase=await requireUser();
+  const {data,error}=await supabase.rpc('wallet_reverse_transaction',{
+    target_transaction:transactionId,
+    note_text:note||'誤登沖正',
+    request_key:randomUUID(),
+  });
+  if(error)redirect(walletUrl(studentId,undefined,friendlyWalletError(error.message)));
+  const balance=Number((data as any)?.balance??0);
+  revalidatePath('/wallet');
+  revalidatePath('/wallet-report');
+  redirect(walletUrl(studentId,'沖正完成，目前餘額 $'+balance.toLocaleString('zh-TW')));
 }
