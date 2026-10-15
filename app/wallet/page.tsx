@@ -133,8 +133,23 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
       {!studentTxs.length?<p className="muted">這位學生目前還沒有交易紀錄。</p>:<div className="txList">
         {studentTxs.map(t=><article key={t.id}>
           <div className={'txIcon '+t.transaction_type}>{t.transaction_type==='top_up'?'+':t.transaction_type==='charge'?'−':'↺'}</div>
-          <div className="txText"><b>{typeText[t.transaction_type]??t.transaction_type}{t.category_id&&categoryMap.get(t.category_id)?' · '+categoryMap.get(t.category_id):''}</b><small>交易 #{t.transaction_no} · {new Date(t.created_at).toLocaleString('zh-TW')}</small>{t.note?<p>{t.note}</p>:null}</div>
-          <div className="txAmount"><strong>{t.transaction_type==='charge'?'-':'+'}{money(Number(t.amount)).replace('NT
+          <div className="txText">
+            <b>{typeText[t.transaction_type]??t.transaction_type}{t.category_id&&categoryMap.get(t.category_id)?' · '+categoryMap.get(t.category_id):''}</b>
+            <small>交易 #{t.transaction_no} · {new Date(t.created_at).toLocaleString('zh-TW')}</small>
+            {t.note?<p>{t.note}</p>:null}
+          </div>
+          <div className="txAmount">
+            <strong>{t.transaction_type==='charge'?'-':'+'}{money(Number(t.amount)).replace('NT$','')}</strong>
+            <small>餘額 {money(Number(t.balance_after))}</small>
+            {t.status==='reversed'?<em>已沖正</em>:null}
+            {canReverse&&t.status==='posted'&&(t.transaction_type==='top_up'||t.transaction_type==='charge')?
+              <form action={reverseWalletTransaction} className="reverseForm">
+                <input type="hidden" name="student_id" value={selected.id}/>
+                <input type="hidden" name="transaction_id" value={t.id}/>
+                <input type="hidden" name="note" value="誤登沖正"/>
+                <button className="dangerButton">沖正</button>
+              </form>:null}
+          </div>
         </article>)}
       </div>}
     </section></>:null}
