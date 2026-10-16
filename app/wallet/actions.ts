@@ -120,3 +120,46 @@ export async function reverseWalletTransaction(formData:FormData){
   revalidatePath('/wallet-report');
   redirect(walletUrl(studentId,'沖正完成，目前餘額 $'+balance.toLocaleString('zh-TW')));
 }
+
+
+export async function createParentWalletLink(formData:FormData){
+  const studentId=String(formData.get('student_id')??'').trim();
+  const threshold=Number(formData.get('low_balance_threshold')??300);
+  if(!studentId)redirect('/wallet?error='+encodeURIComponent('請先選擇學生'));
+  if(!Number.isFinite(threshold)||threshold<0)redirect(walletUrl(studentId,undefined,'低餘額門檻格式不正確'));
+
+  const rawToken=randomBytes(32).toString('base64url');
+  const tokenHash=createHash('sha256').update(rawToken).digest('hex');
+  const supabase=await requireUser();
+  const {error}=await supabase.rpc('parent_wallet_link_create',{
+    target_student:studentId,
+    target_token_hash:tokenHash,
+    target_threshold:threshold,
+  });
+  if(error){
+    const msg=error.message.includes('PARENT_LINK_DENIED')?'目前帳號沒有建立家長查詢連結的權限。':friendlyWalletError(error.message);
+    redirect(walletUrl(studentId,undefined,msg));
+  }
+
+  revalidatePath('/wallet');
+  const p=new URLSearchParams({
+    student:studentId,
+    parent_token:rawToken,
+    message:'家長查詢連結已建立。請複製並傳給家長。',
+  });
+  redirect('/wallet?'+p.toString());
+}
+
+export async function disableParentWalletLink(formData:FormData){
+  const studentId=String(formData.get('student_id')??'').trim();
+  const linkId=String(formData.get('link_id')??'').trim();
+  if(!studentId||!linkId)redirect('/wallet?error='+encodeURIComponent('家長連結資料不完整'));
+  const supabase=await requireUser();
+  const {error}=await supabase.rpc('parent_wallet_link_disable',{target_link:linkId});
+  if(error){
+    const msg=error.message.includes('PARENT_LINK_DENIED')?'目前帳號沒有停用家長查詢連結的權限。':friendlyWalletError(error.message);
+    redirect(walletUrl(studentId,undefined,msg));
+  }
+  revalidatePath('/wallet');
+  redirect(walletUrl(studentId,'家長查詢連結已停用。'));
+}
