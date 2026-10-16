@@ -63,8 +63,11 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
 
   const effectiveTopUps=txs.filter(t=>t.transaction_type==='top_up'&&t.status==='posted');
   const effectiveCharges=txs.filter(t=>t.transaction_type==='charge'&&t.status==='posted');
+  const refunds=txs.filter(t=>t.transaction_type==='refund'&&t.status==='posted');
   const reversals=txs.filter(t=>t.transaction_type==='reversal');
-  const topUpTotal=effectiveTopUps.reduce((a,t)=>a+Number(t.amount),0);
+  const grossTopUpTotal=effectiveTopUps.reduce((a,t)=>a+Number(t.amount),0);
+  const refundTotal=refunds.reduce((a,t)=>a+Number(t.amount),0);
+  const topUpTotal=grossTopUpTotal-refundTotal;
   const chargeTotal=effectiveCharges.reduce((a,t)=>a+Number(t.amount),0);
   const outstanding=wallets.reduce((a,w)=>a+Number(w.balance),0);
 
@@ -91,6 +94,7 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
     const cur=operatorStats.get(key)??{name:operatorMap.get(key)||'未綁定工作人員',count:0,topUp:0,charge:0};
     cur.count+=1;
     if(t.transaction_type==='top_up'&&t.status==='posted')cur.topUp+=Number(t.amount);
+    if(t.transaction_type==='refund'&&t.status==='posted')cur.topUp-=Number(t.amount);
     if(t.transaction_type==='charge'&&t.status==='posted')cur.charge+=Number(t.amount);
     operatorStats.set(key,cur);
   }
@@ -101,6 +105,7 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
   for(const t of allTxs){
     let delta=0;
     if(t.transaction_type==='top_up'&&t.status==='posted')delta=Number(t.amount);
+    else if(t.transaction_type==='refund'&&t.status==='posted')delta=-Number(t.amount);
     else if(t.transaction_type==='charge'&&t.status==='posted')delta=-Number(t.amount);
     else if(t.transaction_type==='reversal'&&t.reversal_of){
       const original=originalMap.get(t.reversal_of);
@@ -127,7 +132,7 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
   return <main className="shell walletReportShell">
     <section className="hero compactHero">
       <div className="eyebrow">WALLET REPORT</div><h1>NFC 儲值報表</h1>
-      <p>儲值屬於預收款；學生實際消費才列為核銷。沖正會另外保留紀錄。</p>
+      <p>儲值屬於預收款；退款會降低預收款淨流入，學生實際消費才列為核銷。沖正與退款都保留完整紀錄。</p>
       <div className="topNav"><Link href="/wallet">返回錢包</Link><a href={exportHref}>匯出 CSV</a></div>
     </section>
 
@@ -141,7 +146,8 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
     </section>
 
     <section className="reportStats">
-      <article><span>有效儲值／預收流入</span><strong>{money(topUpTotal)}</strong><small>{effectiveTopUps.length} 筆</small></article>
+      <article><span>淨儲值／預收流入</span><strong>{money(topUpTotal)}</strong><small>原始儲值 {money(grossTopUpTotal)}</small></article>
+      <article><span>退款</span><strong>{money(refundTotal)}</strong><small>{refunds.length} 筆</small></article>
       <article><span>有效扣款／消費核銷</span><strong>{money(chargeTotal)}</strong><small>{effectiveCharges.length} 筆</small></article>
       <article><span>沖正</span><strong>{reversals.length} 筆</strong><small>原交易保留</small></article>
       <article><span>目前未使用儲值餘額</span><strong>{money(outstanding)}</strong><small>所有學生錢包合計</small></article>
@@ -172,12 +178,12 @@ export default async function WalletReportPage({searchParams}:{searchParams:Prom
       <div className="sectionTitle"><div><span>05</span><h2>交易明細</h2></div><strong>{txs.length} 筆</strong></div>
       {!txs.length?<p className="muted">此日期區間沒有交易。</p>:<div className="reportTxList">
         {txs.map(t=><article key={t.id}>
-          <div><b>#{t.transaction_no} · {studentMap.get(t.student_id)||'學生'}</b><small>{new Date(t.created_at).toLocaleString('zh-TW')} · {t.transaction_type==='top_up'?'儲值':t.transaction_type==='charge'?'扣款':t.transaction_type==='reversal'?'沖正':t.transaction_type}</small>{t.category_id?<small>{categoryMap.get(t.category_id)||'已停用類別'}</small>:null}{t.note?<p>{t.note}</p>:null}</div>
-          <div className="reportAmount"><strong>{t.transaction_type==='charge'?'-':t.transaction_type==='top_up'?'+':'↺ '}{money(Number(t.amount)).replace('NT$','')}</strong><small>交易後 {money(Number(t.balance_after))}</small>{t.status==='reversed'?<em>原交易已沖正</em>:null}</div>
+          <div><b>#{t.transaction_no} · {studentMap.get(t.student_id)||'學生'}</b><small>{new Date(t.created_at).toLocaleString('zh-TW')} · {t.transaction_type==='top_up'?'儲值':t.transaction_type==='refund'?'退款':t.transaction_type==='charge'?'扣款':t.transaction_type==='reversal'?'沖正':t.transaction_type}</small>{t.category_id?<small>{categoryMap.get(t.category_id)||'已停用類別'}</small>:null}{t.note?<p>{t.note}</p>:null}</div>
+          <div className="reportAmount"><strong>{t.transaction_type==='charge'||t.transaction_type==='refund'?'-':t.transaction_type==='top_up'?'+':'↺ '}{money(Number(t.amount)).replace('NT$','')}</strong><small>交易後 {money(Number(t.balance_after))}</small>{t.status==='reversed'?<em>原交易已沖正</em>:null}</div>
         </article>)}
       </div>}
     </section>
 
-    <style>{'.walletReportShell{max-width:960px}.rangeForm{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.rangeForm label{font-size:11px;font-weight:900;color:#667386}.rangeForm input{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.reportStats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.reportStats article{padding:14px;border:1px solid #e2e7ed;border-radius:16px;background:#fff}.reportStats span,.reportStats small{display:block;color:#7b8795;font-size:10px}.reportStats strong{display:block;margin:6px 0;font-size:21px}.categoryStats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.categoryStats article{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px;border:1px solid #e5e9ee;border-radius:13px}.categoryStats small{display:block;color:#7b8795;font-size:10px}.reportTxList{display:grid;gap:8px}.reportTxList article{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px;border:1px solid #e5e9ee;border-radius:13px}.reportTxList small{display:block;color:#7b8795;font-size:10px;margin-top:2px}.reportTxList p{margin:4px 0 0;font-size:11px;color:#607083}.reportAmount{text-align:right}.reportAmount em{display:block;margin-top:4px;font-size:9px;color:#8a5d32;font-style:normal}.dualStats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dualStats>div{border:1px solid #e5e9ee;border-radius:14px;padding:12px}.dualStats h3{margin:0 0 8px;font-size:13px}.dualStats article{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #eef1f4}.dualStats article:first-of-type{border-top:0}.dualStats span,.dualStats small{font-size:10px;color:#6f7b8a}.dualStats small{display:block;margin-top:2px}.dualStats strong{font-size:11px;text-align:right}.balanceTable{display:grid;gap:7px}.balanceTable article{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 11px;border:1px solid #e5e9ee;border-radius:12px}.balanceTable article.bad{border-color:#e7b8b2;background:#fff8f7}.balanceTable span{font-size:10px;color:#708093}.balanceTable strong{font-size:10px}.reconGood{color:#2d7b50}.reconBad{color:#b5483d}@media(max-width:760px){.dualStats{grid-template-columns:1fr}.balanceTable article{grid-template-columns:1fr 1fr}.balanceTable b,.balanceTable strong{grid-column:1/-1}.reportStats{grid-template-columns:1fr 1fr}.rangeForm{grid-template-columns:1fr 1fr}.rangeForm button{grid-column:1/-1}.categoryStats{grid-template-columns:1fr}}@media(max-width:480px){.reportStats,.rangeForm{grid-template-columns:1fr}.rangeForm button{grid-column:auto}.reportTxList article{grid-template-columns:1fr}.reportAmount{text-align:left}}'}</style>
+    <style>{'.walletReportShell{max-width:960px}.rangeForm{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end}.rangeForm label{font-size:11px;font-weight:900;color:#667386}.rangeForm input{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.reportStats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:14px 0}.reportStats article{padding:14px;border:1px solid #e2e7ed;border-radius:16px;background:#fff}.reportStats span,.reportStats small{display:block;color:#7b8795;font-size:10px}.reportStats strong{display:block;margin:6px 0;font-size:21px}.categoryStats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.categoryStats article{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px;border:1px solid #e5e9ee;border-radius:13px}.categoryStats small{display:block;color:#7b8795;font-size:10px}.reportTxList{display:grid;gap:8px}.reportTxList article{display:grid;grid-template-columns:1fr auto;gap:12px;padding:11px;border:1px solid #e5e9ee;border-radius:13px}.reportTxList small{display:block;color:#7b8795;font-size:10px;margin-top:2px}.reportTxList p{margin:4px 0 0;font-size:11px;color:#607083}.reportAmount{text-align:right}.reportAmount em{display:block;margin-top:4px;font-size:9px;color:#8a5d32;font-style:normal}.dualStats{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dualStats>div{border:1px solid #e5e9ee;border-radius:14px;padding:12px}.dualStats h3{margin:0 0 8px;font-size:13px}.dualStats article{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #eef1f4}.dualStats article:first-of-type{border-top:0}.dualStats span,.dualStats small{font-size:10px;color:#6f7b8a}.dualStats small{display:block;margin-top:2px}.dualStats strong{font-size:11px;text-align:right}.balanceTable{display:grid;gap:7px}.balanceTable article{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;align-items:center;padding:10px 11px;border:1px solid #e5e9ee;border-radius:12px}.balanceTable article.bad{border-color:#e7b8b2;background:#fff8f7}.balanceTable span{font-size:10px;color:#708093}.balanceTable strong{font-size:10px}.reconGood{color:#2d7b50}.reconBad{color:#b5483d}@media(max-width:760px){.dualStats{grid-template-columns:1fr}.balanceTable article{grid-template-columns:1fr 1fr}.balanceTable b,.balanceTable strong{grid-column:1/-1}.reportStats{grid-template-columns:1fr 1fr}.rangeForm{grid-template-columns:1fr 1fr}.rangeForm button{grid-column:1/-1}.categoryStats{grid-template-columns:1fr}}@media(max-width:480px){.reportStats,.rangeForm{grid-template-columns:1fr}.rangeForm button{grid-column:auto}.reportTxList article{grid-template-columns:1fr}.reportAmount{text-align:left}}'}</style>
   </main>;
 }
