@@ -1,0 +1,9 @@
+-- Partial wallet refund V1
+-- Production migration already applied to Supabase.
+-- Adds public.wallet_refund(uuid,numeric,text,text)
+-- Rules:
+-- - only posted top_up transactions can be partially refunded
+-- - total refunds cannot exceed original top_up amount
+-- - refund cannot make wallet balance negative
+-- - requires wallet_reverse permission
+-- - all refunds create immutable wallet_transactions rows and audit logs
