@@ -63,7 +63,7 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
       <div className="eyebrow">NFC WALLET V1</div>
       <h1>NFC 智慧儲值</h1>
       <p>先用手動搜尋測試錢包、儲值與扣款；NTAG213 到貨後再接上感應入口。</p>
-      <div className="topNav"><Link href="/more">返回更多</Link><Link href="/students">學生名單</Link><Link href="/wallet-report">交易報表</Link></div>
+      <div className="topNav"><Link href="/more">返回更多</Link><Link href="/wallet/quick">快速扣款</Link><Link href="/wallet/low-balance">低餘額</Link><Link href="/wallet-report">交易報表</Link>{admin?<Link href="/wallet/settings">類別設定</Link>:null}</div>
     </section>
 
     {params.message?<div className="notice successNotice">✓ {params.message}</div>:null}
