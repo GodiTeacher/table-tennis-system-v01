@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {getCurrentTeamEntitlements,hasPlanFeature} from '@/lib/subscription-server';
-import {bindNfcCard,chargeWallet,createParentWalletLink,disableNfcCard,disableParentWalletLink,reverseWalletTransaction,topUpWallet} from './actions';
+import {bindNfcCard,chargeWallet,createParentWalletLink,disableNfcCard,disableParentWalletLink,refundWalletTopUp,reverseWalletTransaction,topUpWallet} from './actions';
 
 type Student={id:string;display_name:string;grade:number|null;class_name:string|null;seat_number:number|null};
 type Wallet={id:string;student_id:string;balance:number;total_top_up:number;total_charge:number;status:string};
 type Category={id:string;name:string;sort_order:number};
-type Tx={id:string;transaction_no:number;student_id:string;transaction_type:string;amount:number;balance_after:number;category_id:string|null;note:string|null;status:string;created_at:string};
+type Tx={id:string;transaction_no:number;student_id:string;transaction_type:string;amount:number;balance_after:number;category_id:string|null;note:string|null;status:string;created_at:string;reversal_of:string|null};
 type Membership={member_role:string;permissions:Record<string,boolean>};
 type NfcCard={id:string;student_id:string;card_label:string|null;status:string;issued_at:string;disabled_at:string|null};
 type ParentLink={id:string;student_id:string;active:boolean;low_balance_threshold:number;created_at:string;last_used_at:string|null};
@@ -25,7 +25,7 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
     supabase.from('students').select('id,display_name,grade,class_name,seat_number').eq('team_id',teamId).eq('active',true).order('grade').order('class_name').order('seat_number'),
     supabase.from('student_wallets').select('id,student_id,balance,total_top_up,total_charge,status').eq('team_id',teamId),
     supabase.from('wallet_categories').select('id,name,sort_order').eq('team_id',teamId).eq('active',true).eq('category_type','charge').order('sort_order'),
-    supabase.from('wallet_transactions').select('id,transaction_no,student_id,transaction_type,amount,balance_after,category_id,note,status,created_at').eq('team_id',teamId).order('created_at',{ascending:false}).limit(100),
+    supabase.from('wallet_transactions').select('id,transaction_no,student_id,transaction_type,amount,balance_after,category_id,note,status,created_at,reversal_of').eq('team_id',teamId).order('created_at',{ascending:false}).limit(100),
     supabase.from('team_members').select('member_role,permissions').eq('team_id',teamId).eq('user_id',userId).maybeSingle(),
     supabase.from('nfc_cards').select('id,student_id,card_label,status,issued_at,disabled_at').eq('team_id',teamId).order('issued_at',{ascending:false}),
     supabase.from('parent_wallet_links').select('id,student_id,active,low_balance_threshold,created_at,last_used_at').eq('team_id',teamId).order('created_at',{ascending:false}),
@@ -50,6 +50,8 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
   const wallet=selected?wallets.find(w=>w.student_id===selected.id):null;
   const studentTxs=selected?txs.filter(t=>t.student_id===selected.id):[];
   const categoryMap=new Map(categories.map(c=>[c.id,c.name]));
+  const refundedByOriginal=new Map<string,number>();
+  for(const t of studentTxs){if(t.transaction_type==='refund'&&t.reversal_of&&t.status==='posted')refundedByOriginal.set(t.reversal_of,(refundedByOriginal.get(t.reversal_of)??0)+Number(t.amount));}
   const balance=Number(wallet?.balance??0);
   const activeCard=selected?nfcCards.find(card=>card.student_id===selected.id&&card.status==='active'):null;
   const cardHistory=selected?nfcCards.filter(card=>card.student_id===selected.id):[];
@@ -159,15 +161,32 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
             {t.note?<p>{t.note}</p>:null}
           </div>
           <div className="txAmount">
-            <strong>{t.transaction_type==='charge'?'-':'+'}{money(Number(t.amount)).replace('NT$','')}</strong>
+            <strong>{t.transaction_type==='charge'||t.transaction_type==='refund'?'-':t.transaction_type==='reversal'?'↺ ':'+'}{money(Number(t.amount)).replace('NT
+        </article>)}
+      </div>}
+    </section></>:null}
+
+    <style>{'.walletShell{max-width:960px}.walletSearch{display:flex;gap:8px;margin-bottom:12px}.walletSearch input{flex:1;min-width:0;padding:11px 12px;border:1px solid #dce2e8;border-radius:12px;font:inherit}.studentPicker{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:280px;overflow:auto}.studentPicker a{display:flex;flex-direction:column;gap:2px;padding:10px 11px;border:1px solid #e2e7ed;border-radius:12px;text-decoration:none;color:#263244;background:#fff}.studentPicker a.active{border-color:var(--theme-accent,#7c3aed);background:var(--theme-soft,#f5f3ff)}.studentPicker small{color:#7c8796;font-size:10px}.walletHeroCard{display:grid;grid-template-columns:1fr 1.2fr;gap:16px;align-items:center;margin:14px 0;padding:18px;border-radius:22px;background:linear-gradient(135deg,#18202d,#344158);color:#fff}.walletHeroCard span{font-size:10px;letter-spacing:.08em;color:#cbd5e1}.walletHeroCard h2{margin:4px 0;font-size:25px}.walletHeroCard small{color:#cbd5e1}.balanceBox{text-align:right}.balanceBox strong{display:block;font-size:36px;line-height:1.1;margin:5px 0}.walletActionsGrid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.walletForm{display:grid;grid-template-columns:1fr 1fr;gap:9px}.walletForm label{font-size:11px;font-weight:900;color:#667386}.walletForm input,.walletForm select{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.walletForm .wide{grid-column:1/-1}.permissionNote{margin:10px 0 0;padding:9px 11px;border-radius:10px;background:#fff7ed;color:#9a5a24;font-size:11px}.txList{display:grid;gap:8px}.txList article{display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;padding:11px;border:1px solid #e5e9ee;border-radius:14px}.txIcon{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:950;background:#eef2f6}.txIcon.top_up{background:#eaf8f0;color:#238454}.txIcon.charge{background:#fff1ee;color:#c34b3f}.txText{min-width:0}.txText small,.txAmount small{display:block;color:#7b8795;font-size:10px;margin-top:2px}.txText p{margin:4px 0 0;color:#607083;font-size:11px}.txAmount{text-align:right}.txAmount strong{font-size:16px}.reverseForm{margin-top:6px}.reverseForm button{font-size:10px;padding:5px 8px}.refundForm{display:grid;grid-template-columns:76px auto;gap:5px;margin-top:6px}.refundForm input{min-width:0;padding:5px 6px;border:1px solid #d7dde5;border-radius:8px;font-size:10px}.refundForm button{font-size:10px;padding:5px 7px}.txAmount em{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:999px;background:#eef2f6;color:#6b7280;font-size:9px;font-style:normal}.newCardBox{display:grid;gap:7px;margin:10px 0;padding:12px;border-radius:14px;background:#eefaf4;border:1px solid #ccebd9}.newCardBox code{display:block;overflow-wrap:anywhere;padding:9px;border-radius:9px;background:#fff;font-size:11px}.newCardBox p{margin:0;color:#617263;font-size:11px}.nfcCurrent{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px;border:1px solid #e2e7ed;border-radius:14px}.nfcCurrent>div:first-child{display:flex;flex-direction:column;gap:3px}.nfcCurrent small{color:#7b8795;font-size:10px}.nfcButtons{display:flex;gap:7px}.bindCardForm{display:grid;grid-template-columns:1fr auto;gap:9px;align-items:end;margin-top:10px}.bindCardForm label{font-size:11px;font-weight:900;color:#667386}.bindCardForm input{display:block;width:100%;margin-top:5px;padding:10px 11px;border:1px solid #dce2e8;border-radius:11px;background:#fff;font:inherit}.cardHistory{margin-top:12px}.cardHistory summary{cursor:pointer;font-size:11px;font-weight:800;color:#657285}.cardHistory div{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-top:1px solid #eef1f4;font-size:11px}.cardHistory small{color:#7b8795}@media(max-width:760px){.studentPicker{grid-template-columns:repeat(2,1fr)}.walletHeroCard,.walletActionsGrid{grid-template-columns:1fr}.balanceBox{text-align:left}.walletForm{grid-template-columns:1fr}.walletForm .wide{grid-column:auto}.walletSearch{flex-wrap:wrap}.nfcCurrent{align-items:flex-start;flex-direction:column}.nfcButtons{width:100%}.nfcButtons form{flex:1}.nfcButtons button{width:100%}.bindCardForm{grid-template-columns:1fr}.walletSearch input{flex-basis:100%}}@media(max-width:440px){.studentPicker{grid-template-columns:1fr}.txList article{grid-template-columns:auto 1fr}.txAmount{grid-column:2;text-align:left}.balanceBox strong{font-size:31px}}'}</style>
+  </main>;
+}
+,'')}</strong>
             <small>餘額 {money(Number(t.balance_after))}</small>
             {t.status==='reversed'?<em>已沖正</em>:null}
-            {canReverse&&t.status==='posted'&&(t.transaction_type==='top_up'||t.transaction_type==='charge')?
+            {t.transaction_type==='top_up'&&(refundedByOriginal.get(t.id)??0)>0?<em>已退款 {money(refundedByOriginal.get(t.id)??0)}</em>:null}
+            {canReverse&&t.status==='posted'&&(t.transaction_type==='top_up'||t.transaction_type==='charge')&&(t.transaction_type!=='top_up'||(refundedByOriginal.get(t.id)??0)===0)?
               <form action={reverseWalletTransaction} className="reverseForm">
                 <input type="hidden" name="student_id" value={selected.id}/>
                 <input type="hidden" name="transaction_id" value={t.id}/>
                 <input type="hidden" name="note" value="誤登沖正"/>
                 <button className="dangerButton">沖正</button>
+              </form>:null}
+            {canReverse&&t.transaction_type==='top_up'&&t.status==='posted'&&(Number(t.amount)-(refundedByOriginal.get(t.id)??0))>0?
+              <form action={refundWalletTopUp} className="refundForm">
+                <input type="hidden" name="student_id" value={selected.id}/>
+                <input type="hidden" name="transaction_id" value={t.id}/>
+                <input type="number" name="refund_amount" min="1" step="1" max={Math.min(Number(t.amount)-(refundedByOriginal.get(t.id)??0),balance)} placeholder={'可退 '+money(Math.min(Number(t.amount)-(refundedByOriginal.get(t.id)??0),balance))} required/>
+                <input type="hidden" name="note" value="部分退款"/>
+                <button className="secondaryButton" disabled={balance<=0}>部分退款</button>
               </form>:null}
           </div>
         </article>)}
