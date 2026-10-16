@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {cookies} from 'next/headers';
 import {redirect} from 'next/navigation';
 import {createClient} from '@/lib/supabase/server';
 
@@ -27,5 +28,13 @@ export default async function NfcCardEntryPage({params}:{params:Promise<{token:s
 
   const studentId=String((data as any)?.student_id??'');
   if(!studentId)redirect('/wallet?error='+encodeURIComponent('NFC 卡片沒有綁定有效學生'));
+
+  const jar=await cookies();
+  const quickMode=jar.get('wallet-quick-enabled')?.value==='1';
+  const quickAmount=Number(jar.get('wallet-quick-amount')?.value??0);
+  if(quickMode&&Number.isFinite(quickAmount)&&quickAmount>0){
+    redirect('/wallet/quick?student='+encodeURIComponent(studentId));
+  }
+
   redirect('/wallet?student='+encodeURIComponent(studentId)+'&message='+encodeURIComponent('NFC 感應成功'));
 }
