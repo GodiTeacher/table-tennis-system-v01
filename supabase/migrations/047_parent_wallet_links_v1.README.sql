@@ -1,0 +1,12 @@
+-- Parent wallet read-only links V1.
+-- Production migration applied in Supabase.
+-- Core objects:
+--   parent_wallet_links
+--   parent_wallet_link_create(uuid,text,numeric)
+--   parent_wallet_link_disable(uuid)
+--   get_public_wallet_by_token(text)
+--
+-- Security model:
+--   raw share tokens are never stored; only SHA-256 hashes are persisted.
+--   management RPCs require authenticated team access.
+--   public lookup RPC returns read-only student wallet information only.
