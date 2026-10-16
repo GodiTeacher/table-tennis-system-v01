@@ -17,6 +17,11 @@ function friendlyWalletError(message:string){
   if(message.includes('WALLET_TOP_UP_DENIED'))return '目前帳號沒有儲值權限。';
   if(message.includes('WALLET_CHARGE_DENIED'))return '目前帳號沒有扣款權限。';
   if(message.includes('WALLET_REVERSE_DENIED'))return '目前帳號沒有沖正權限。';
+  if(message.includes('WALLET_REFUND_DENIED'))return '目前帳號沒有退款權限。';
+  if(message.includes('ONLY_TOP_UP_REFUNDABLE'))return '只有儲值交易可以部分退款。';
+  if(message.includes('REFUND_EXCEEDS_REMAINING'))return '退款金額超過此筆儲值剩餘可退金額。';
+  if(message.includes('REFUND_WOULD_NEGATIVE'))return '目前錢包餘額不足，退款後會變成負數。';
+  if(message.includes('PARTIALLY_REFUNDED_USE_REFUND'))return '此筆儲值已有部分退款，請繼續使用退款功能，不可整筆沖正。';
   if(message.includes('TRANSACTION_ALREADY_REVERSED'))return '這筆交易已經沖正，不能重複處理。';
   if(message.includes('TRANSACTION_NOT_REVERSIBLE'))return '這筆交易不能沖正。';
   if(message.includes('REVERSAL_WOULD_NEGATIVE'))return '沖正後會造成負餘額，因此無法執行。';
@@ -162,4 +167,27 @@ export async function disableParentWalletLink(formData:FormData){
   }
   revalidatePath('/wallet');
   redirect(walletUrl(studentId,'家長查詢連結已停用。'));
+}
+
+
+export async function refundWalletTopUp(formData:FormData){
+  const studentId=String(formData.get('student_id')??'').trim();
+  const transactionId=String(formData.get('transaction_id')??'').trim();
+  const amount=Number(formData.get('refund_amount')??0);
+  const note=String(formData.get('note')??'').trim();
+  if(!studentId||!transactionId)redirect('/wallet?error='+encodeURIComponent('退款交易資料不完整'));
+  if(!Number.isFinite(amount)||amount<=0)redirect(walletUrl(studentId,undefined,'請輸入正確的退款金額'));
+
+  const supabase=await requireUser();
+  const {data,error}=await supabase.rpc('wallet_refund',{
+    target_transaction:transactionId,
+    refund_amount:amount,
+    note_text:note||'部分退款',
+    request_key:randomUUID(),
+  });
+  if(error)redirect(walletUrl(studentId,undefined,friendlyWalletError(error.message)));
+  const balance=Number((data as any)?.balance??0);
+  revalidatePath('/wallet');
+  revalidatePath('/wallet-report');
+  redirect(walletUrl(studentId,'退款完成，目前餘額 $'+balance.toLocaleString('zh-TW')));
 }
