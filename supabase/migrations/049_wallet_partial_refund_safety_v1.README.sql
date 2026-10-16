@@ -1,0 +1,6 @@
+-- Partial refund safety V1
+-- Production migration already applied to Supabase.
+-- Replaces the old one-reversal-per-origin index so:
+-- - one full reversal is allowed
+-- - multiple partial refunds are allowed
+-- - a partially refunded top_up cannot later be fully reversed
