@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {getCurrentTeamEntitlements,hasPlanFeature} from '@/lib/subscription-server';
-import {bindNfcCard,chargeWallet,disableNfcCard,reverseWalletTransaction,topUpWallet} from './actions';
+import {bindNfcCard,chargeWallet,createParentWalletLink,disableNfcCard,disableParentWalletLink,reverseWalletTransaction,topUpWallet} from './actions';
 
 type Student={id:string;display_name:string;grade:number|null;class_name:string|null;seat_number:number|null};
 type Wallet={id:string;student_id:string;balance:number;total_top_up:number;total_charge:number;status:string};
@@ -9,24 +9,26 @@ type Category={id:string;name:string;sort_order:number};
 type Tx={id:string;transaction_no:number;student_id:string;transaction_type:string;amount:number;balance_after:number;category_id:string|null;note:string|null;status:string;created_at:string};
 type Membership={member_role:string;permissions:Record<string,boolean>};
 type NfcCard={id:string;student_id:string;card_label:string|null;status:string;issued_at:string;disabled_at:string|null};
+type ParentLink={id:string;student_id:string;active:boolean;low_balance_threshold:number;created_at:string;last_used_at:string|null};
 
 const money=(v:number)=>new Intl.NumberFormat('zh-TW',{style:'currency',currency:'TWD',maximumFractionDigits:0}).format(v);
 const typeText:Record<string,string>={top_up:'儲值',charge:'扣款',refund:'退款',reversal:'沖正',adjustment:'調整'};
 
-export default async function WalletPage({searchParams}:{searchParams:Promise<{q?:string;student?:string;message?:string;error?:string;card_token?:string}>}){
+export default async function WalletPage({searchParams}:{searchParams:Promise<{q?:string;student?:string;message?:string;error?:string;card_token?:string;parent_token?:string}>}){
   const params=await searchParams;
   const {supabase,userId,teamId,entitlements}=await getCurrentTeamEntitlements();
   if(!userId)redirect('/login');
   if(!teamId)redirect('/more');
   if(!hasPlanFeature(entitlements,'nfc_wallet'))redirect('/plans?locked=nfc_wallet');
 
-  const [{data:studentRows},{data:walletRows},{data:categoryRows},{data:txRows},{data:membershipRow},{data:nfcRows}]=await Promise.all([
+  const [{data:studentRows},{data:walletRows},{data:categoryRows},{data:txRows},{data:membershipRow},{data:nfcRows},{data:parentRows}]=await Promise.all([
     supabase.from('students').select('id,display_name,grade,class_name,seat_number').eq('team_id',teamId).eq('active',true).order('grade').order('class_name').order('seat_number'),
     supabase.from('student_wallets').select('id,student_id,balance,total_top_up,total_charge,status').eq('team_id',teamId),
     supabase.from('wallet_categories').select('id,name,sort_order').eq('team_id',teamId).eq('active',true).eq('category_type','charge').order('sort_order'),
     supabase.from('wallet_transactions').select('id,transaction_no,student_id,transaction_type,amount,balance_after,category_id,note,status,created_at').eq('team_id',teamId).order('created_at',{ascending:false}).limit(100),
     supabase.from('team_members').select('member_role,permissions').eq('team_id',teamId).eq('user_id',userId).maybeSingle(),
     supabase.from('nfc_cards').select('id,student_id,card_label,status,issued_at,disabled_at').eq('team_id',teamId).order('issued_at',{ascending:false}),
+    supabase.from('parent_wallet_links').select('id,student_id,active,low_balance_threshold,created_at,last_used_at').eq('team_id',teamId).order('created_at',{ascending:false}),
   ]);
 
   const students=(studentRows??[]) as Student[];
@@ -35,6 +37,7 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
   const txs=(txRows??[]) as Tx[];
   const membership=(membershipRow??{member_role:'coach',permissions:{}}) as Membership;
   const nfcCards=(nfcRows??[]) as NfcCard[];
+  const parentLinks=(parentRows??[]) as ParentLink[];
   const admin=['owner','admin'].includes(membership.member_role);
   const canTopUp=admin||Boolean(membership.permissions?.wallet_top_up);
   const canCharge=admin||Boolean(membership.permissions?.wallet_charge);
@@ -52,6 +55,8 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
   const cardHistory=selected?nfcCards.filter(card=>card.student_id===selected.id):[];
   const siteUrl=(process.env.NEXT_PUBLIC_APP_URL??'https://table-tennis-system-v01.cramtabletennis.workers.dev').replace(/\/$/,'');
   const newCardUrl=params.card_token?siteUrl+'/c/'+params.card_token:null;
+  const activeParentLink=selected?parentLinks.find(link=>link.student_id===selected.id&&link.active):null;
+  const newParentUrl=params.parent_token?siteUrl+'/family/w/'+params.parent_token:null;
 
   return <main className="shell walletShell">
     <section className="hero compactHero">
@@ -129,7 +134,22 @@ export default async function WalletPage({searchParams}:{searchParams:Promise<{q
     </section>
 
     <section className="card">
-      <div className="sectionTitle"><div><span>05</span><h2>最近交易</h2></div><strong>{studentTxs.length} 筆</strong></div>
+      <div className="sectionTitle"><div><span>05</span><h2>家長查詢連結</h2></div><strong>{activeParentLink?'已啟用':'未啟用'}</strong></div>
+      <p className="muted">家長只能查看這位學生的餘額與最近交易，不能儲值、扣款或修改資料。</p>
+      {newParentUrl?<div className="newCardBox"><b>請把這個家長查詢網址傳給家長</b><code>{newParentUrl}</code><p>原始連結只會顯示這一次；若之後忘記，請重新產生，新連結建立時舊連結會自動失效。</p></div>:null}
+      {activeParentLink?<div className="nfcCurrent">
+        <div><b>家長查詢已啟用</b><small>低餘額門檻 {money(Number(activeParentLink.low_balance_threshold))}{activeParentLink.last_used_at?' · 最近查看 '+new Date(activeParentLink.last_used_at).toLocaleString('zh-TW'):''}</small></div>
+        <form action={disableParentWalletLink}><input type="hidden" name="student_id" value={selected.id}/><input type="hidden" name="link_id" value={activeParentLink.id}/><button className="dangerButton">停用家長連結</button></form>
+      </div>:null}
+      <form action={createParentWalletLink} className="bindCardForm">
+        <input type="hidden" name="student_id" value={selected.id}/>
+        <label>低餘額提醒門檻<input name="low_balance_threshold" type="number" min="0" step="1" defaultValue={Number(activeParentLink?.low_balance_threshold??300)}/></label>
+        <button className="primaryButton">{activeParentLink?'重新產生家長連結':'＋ 建立家長查詢連結'}</button>
+      </form>
+    </section>
+
+    <section className="card">
+      <div className="sectionTitle"><div><span>06</span><h2>最近交易</h2></div><strong>{studentTxs.length} 筆</strong></div>
       {!studentTxs.length?<p className="muted">這位學生目前還沒有交易紀錄。</p>:<div className="txList">
         {studentTxs.map(t=><article key={t.id}>
           <div className={'txIcon '+t.transaction_type}>{t.transaction_type==='top_up'?'+':t.transaction_type==='charge'?'−':'↺'}</div>
