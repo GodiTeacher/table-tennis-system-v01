@@ -45,7 +45,7 @@ export async function GET(req:NextRequest){
   const lines=[header.map(csvCell).join(',')];
 
   for(const t of txRows??[]){
-    const type=t.transaction_type==='top_up'?'儲值':t.transaction_type==='charge'?'扣款':t.transaction_type==='reversal'?'沖正':t.transaction_type;
+    const type=t.transaction_type==='top_up'?'儲值':t.transaction_type==='refund'?'退款':t.transaction_type==='charge'?'扣款':t.transaction_type==='reversal'?'沖正':t.transaction_type;
     const method=t.payment_method==='cash'?'現金':t.payment_method==='transfer'?'匯款':t.payment_method==='other'?'其他':'';
     lines.push([
       t.transaction_no,
