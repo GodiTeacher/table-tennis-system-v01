@@ -92,3 +92,43 @@ export async function rotateNfcDeviceSecret(formData:FormData){
   });
   redirect('/devices?'+p.toString());
 }
+
+
+export async function simulateNfcDeviceScan(formData:FormData){
+  const deviceId=String(formData.get('device_id')??'').trim();
+  const studentId=String(formData.get('student_id')??'').trim();
+  if(!deviceId||!studentId)redirect('/devices?error='+encodeURIComponent('請選擇裝置與學生'));
+
+  const {supabase,teamId}=await requireDeviceManager();
+  const [{data:device},{data:card}]=await Promise.all([
+    supabase.from('team_devices').select('device_key,secret_hash').eq('id',deviceId).eq('team_id',teamId).eq('enabled',true).maybeSingle(),
+    supabase.from('nfc_cards').select('token_hash').eq('team_id',teamId).eq('student_id',studentId).eq('status','active').order('issued_at',{ascending:false}).limit(1).maybeSingle(),
+  ]);
+
+  if(!device)redirect('/devices?error='+encodeURIComponent('找不到啟用中的裝置'));
+  if(!card)redirect('/devices?error='+encodeURIComponent('這位學生尚未綁定有效 NFC 卡'));
+
+  const {data,error}=await supabase.rpc('device_nfc_check_in',{
+    target_device_key:device.device_key,
+    target_secret_hash:device.secret_hash,
+    target_card_token_hash:card.token_hash,
+    target_firmware:'SIMULATOR',
+  });
+
+  if(error)redirect('/devices?error='+encodeURIComponent(error.message));
+  const result=data as any;
+  const code=String(result?.code??'UNKNOWN');
+  const name=String(result?.student?.display_name??'學生');
+  const balance=Number(result?.wallet_balance??0);
+  const points=Number(result?.points??0);
+  const message=
+    code==='CHECKIN_OK'?name+'：簽到成功｜餘額 $'+balance.toLocaleString('zh-TW')+'｜點數 '+points:
+    code==='ALREADY_CHECKED_IN'?name+'：已簽到｜餘額 $'+balance.toLocaleString('zh-TW')+'｜點數 '+points:
+    code==='RATE_LIMIT'?name+'：已達刷卡次數限制':
+    '模擬結果：'+code;
+
+  revalidatePath('/devices');
+  revalidatePath('/today');
+  revalidatePath('/attendance-settings');
+  redirect('/devices?message='+encodeURIComponent(message));
+}
