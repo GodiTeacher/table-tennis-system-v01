@@ -16,6 +16,7 @@ const GROUPS = [
     title: '營運管理', subtitle: '出勤、冷氣、薪酬與月結', icon: '▦', items: [
       { icon: '●', title: '學生出勤', desc: '固定週模板、每日例外與時段人數', href: '/attendance-settings' },
       { icon: '◫', title: 'NFC 智慧儲值', desc: '學生錢包、儲值、扣款與交易紀錄', href: '/wallet', pro:true },
+      { icon: '◉', title: 'NFC 自助簽到機', desc: '裝置、刷卡限制、簽到與點數查詢', href: '/devices', pro:true },
       { icon: '❄', title: '冷氣費用', desc: '電表、冷氣時段與月費群組分攤', href: '/aircon', pro:true },
       { icon: '◎', title: '教練薪酬', desc: '出勤、收支、固定月薪與加權分配', href: '/payroll', pro:true },
       { icon: '▤', title: '營運月結', desc: '整合檢查與 LINE／圖片月報', href: '/operations-close', pro:true },
