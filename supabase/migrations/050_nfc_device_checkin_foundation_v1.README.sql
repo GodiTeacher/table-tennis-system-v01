@@ -1,0 +1,24 @@
+-- NFC Device + individual student check-in foundation V1
+-- Production migration applied to Supabase project table-tennis-system-v01.
+--
+-- Creates:
+--   public.team_devices
+--   public.student_checkins
+--   public.device_scan_logs
+--   public.device_nfc_check_in(text,text,text,text)
+--
+-- Core rules:
+--   * each self-service station has a Device Key + hashed Device Secret
+--   * station never signs in as a coach
+--   * one formal student check-in per team/student/Taipei calendar day
+--   * later scans update scan_count but do not create duplicate attendance
+--   * each device stores configurable scan_window_minutes / max_scans_per_window
+--   * default = 30 minutes / 3 accepted scans
+--   * API response includes check-in state, wallet balance and current student points
+--   * scan logs preserve rate-limit, invalid-card and accepted-scan history
+--
+-- Security:
+--   * raw Device Secret is only shown at creation/rotation time
+--   * database stores secret_hash only
+--   * active NFC card token must belong to the same team as the device
+--   * device RPC does not grant wallet top-up, charge, refund or profile-edit access
