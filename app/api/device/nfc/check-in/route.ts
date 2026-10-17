@@ -26,7 +26,7 @@ function hardwarePayload(data:any){
   if(code==='CHECKIN_OK'){
     return {
       lcd:{lines:[
-        fit20(String(student.display_name??studentLabel)),
+        fit20(studentLabel),
         fit20('CHECK-IN OK'),
         fit20('BALANCE 
   const raw=input.trim();
@@ -91,7 +91,7 @@ export async function POST(req:NextRequest){
   if(code==='ALREADY_CHECKED_IN'){
     return {
       lcd:{lines:[
-        fit20(String(student.display_name??studentLabel)),
+        fit20(studentLabel),
         fit20('ALREADY CHECKED'),
         fit20('BALANCE 
   const raw=input.trim();
