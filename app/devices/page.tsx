@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import {redirect} from 'next/navigation';
 import {getCurrentTeamEntitlements,hasPlanFeature} from '@/lib/subscription-server';
-import {createNfcDevice,rotateNfcDeviceSecret,updateNfcDevice} from './actions';
+import {createNfcDevice,rotateNfcDeviceSecret,simulateNfcDeviceScan,updateNfcDevice} from './actions';
 
 type Device={
   id:string;name:string;device_key:string;enabled:boolean;mode:string;
@@ -17,9 +17,10 @@ export default async function DevicesPage({searchParams}:{searchParams:Promise<{
   if(!teamId)redirect('/more');
   if(!hasPlanFeature(entitlements,'nfc_wallet'))redirect('/plans?locked=nfc_wallet');
 
-  const [{data:membershipRow},{data:rows}]=await Promise.all([
+  const [{data:membershipRow},{data:rows},{data:students}]=await Promise.all([
     supabase.from('team_members').select('member_role,permissions').eq('team_id',teamId).eq('user_id',userId).maybeSingle(),
-    supabase.from('team_devices').select('id,name,device_key,enabled,mode,scan_window_minutes,max_scans_per_window,min_repeat_seconds,firmware_version,last_seen_at,created_at').eq('team_id',teamId).order('created_at',{ascending:false})
+    supabase.from('team_devices').select('id,name,device_key,enabled,mode,scan_window_minutes,max_scans_per_window,min_repeat_seconds,firmware_version,last_seen_at,created_at').eq('team_id',teamId).order('created_at',{ascending:false}),
+    supabase.from('students').select('id,display_name,grade,class_name,seat_number').eq('team_id',teamId).eq('active',true).order('grade').order('class_name').order('seat_number')
   ]);
 
   const membership=(membershipRow??{member_role:'coach',permissions:{}}) as Membership;
@@ -60,7 +61,18 @@ export default async function DevicesPage({searchParams}:{searchParams:Promise<{
     </section>
 
     <section className="card">
-      <div className="sectionTitle"><div><span>02</span><h2>目前裝置</h2></div><strong>{devices.length} 台</strong></div>
+      <div className="sectionTitle"><div><span>02</span><h2>模擬學生刷卡</h2></div><strong>免硬體測試</strong></div>
+      <p className="muted">先用 App 模擬同一套裝置簽到邏輯。學生必須已經綁定有效 NFC 卡。</p>
+      <form action={simulateNfcDeviceScan} className="simulatorForm">
+        <label>裝置<select name="device_id" required defaultValue=""><option value="" disabled>選擇裝置</option>{devices.filter(d=>d.enabled).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+        <label>學生<select name="student_id" required defaultValue=""><option value="" disabled>選擇學生</option>{(students??[]).map(s=><option key={s.id} value={s.id}>{s.display_name}{s.class_name?' · '+s.class_name:''}{s.seat_number?' · '+s.seat_number+'號':''}</option>)}</select></label>
+        <button className="primaryButton">模擬刷卡</button>
+      </form>
+      <div className="simulatorHint">建議同一位學生連續測 4 次：第 1 次應為簽到成功，第 2～3 次為已簽到，第 4 次應觸發 30 分鐘刷卡限制。</div>
+    </section>
+
+    <section className="card">
+      <div className="sectionTitle"><div><span>03</span><h2>目前裝置</h2></div><strong>{devices.length} 台</strong></div>
       {!devices.length?<p className="muted">目前尚未建立自助簽到裝置。</p>:<div className="deviceList">
         {devices.map(d=>{
           const online=d.last_seen_at&&Date.now()-new Date(d.last_seen_at).getTime()<10*60*1000;
@@ -93,6 +105,6 @@ export default async function DevicesPage({searchParams}:{searchParams:Promise<{
       </div>}
     </section>
 
-    <style>{'.deviceShell{max-width:860px}.secretCard{display:grid;gap:8px;margin:14px 0;padding:16px;border-radius:18px;background:#fff7dd;border:1px solid #ead28b}.secretCard>b{font-size:15px}.secretCard small,.secretCard p{color:#786c4b;font-size:11px}.secretCard label{font-size:11px;font-weight:900}.secretCard code{display:block;margin-top:4px;padding:9px;border-radius:9px;background:#fff;overflow-wrap:anywhere;font-size:11px}.deviceCreateForm{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:9px;align-items:end}.deviceCreateForm label,.deviceEditForm label{font-size:10px;font-weight:900;color:#667386}.deviceCreateForm input,.deviceEditForm input,.deviceEditForm select{display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid #dce2e8;border-radius:10px;background:#fff;font:inherit}.deviceList{display:grid;gap:10px}.deviceList article{padding:13px;border:1px solid #e3e8ed;border-radius:15px}.deviceList article.disabled{opacity:.65;background:#fafafa}.deviceHead{display:flex;justify-content:space-between;gap:10px;align-items:center}.deviceHead b,.deviceHead small{display:block}.deviceHead small{color:#7b8795;font-size:9px;margin-top:2px}.status{font-size:10px;font-weight:900;padding:5px 8px;border-radius:999px}.status.online{background:#e8f7ef;color:#247a4e}.status.idle{background:#eef2f6;color:#677586}.status.off{background:#f3eceb;color:#946158}.deviceMeta{display:flex;flex-wrap:wrap;gap:6px 12px;margin:9px 0;color:#6e7b8c;font-size:10px}.deviceEditForm{display:grid;grid-template-columns:2fr .7fr .7fr .8fr auto;gap:7px;align-items:end}.rotateForm{margin-top:8px;text-align:right}.rotateForm button{font-size:10px}@media(max-width:720px){.deviceCreateForm,.deviceEditForm{grid-template-columns:1fr 1fr}.deviceCreateForm label:first-child,.deviceEditForm label:first-child{grid-column:1/-1}.deviceCreateForm button,.deviceEditForm button{grid-column:1/-1;width:100%}}@media(max-width:430px){.deviceCreateForm,.deviceEditForm{grid-template-columns:1fr}.deviceCreateForm label:first-child,.deviceEditForm label:first-child,.deviceCreateForm button,.deviceEditForm button{grid-column:auto}.deviceHead{align-items:flex-start;flex-direction:column}.rotateForm{text-align:left}.rotateForm button{width:100%}}'}</style>
+    <style>{'.deviceShell{max-width:860px}.secretCard{display:grid;gap:8px;margin:14px 0;padding:16px;border-radius:18px;background:#fff7dd;border:1px solid #ead28b}.secretCard>b{font-size:15px}.secretCard small,.secretCard p{color:#786c4b;font-size:11px}.secretCard label{font-size:11px;font-weight:900}.secretCard code{display:block;margin-top:4px;padding:9px;border-radius:9px;background:#fff;overflow-wrap:anywhere;font-size:11px}.deviceCreateForm{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:9px;align-items:end}.deviceCreateForm label,.deviceEditForm label{font-size:10px;font-weight:900;color:#667386}.deviceCreateForm input,.deviceEditForm input,.deviceEditForm select{display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid #dce2e8;border-radius:10px;background:#fff;font:inherit}.simulatorForm{display:grid;grid-template-columns:1fr 1fr auto;gap:9px;align-items:end;margin-top:10px}.simulatorForm label{font-size:10px;font-weight:900;color:#667386}.simulatorForm select{display:block;width:100%;margin-top:4px;padding:9px 10px;border:1px solid #dce2e8;border-radius:10px;background:#fff;font:inherit}.simulatorHint{margin-top:9px;padding:9px 10px;border-radius:10px;background:#f6f8fa;color:#6e7a89;font-size:10px}.deviceList{display:grid;gap:10px}.deviceList article{padding:13px;border:1px solid #e3e8ed;border-radius:15px}.deviceList article.disabled{opacity:.65;background:#fafafa}.deviceHead{display:flex;justify-content:space-between;gap:10px;align-items:center}.deviceHead b,.deviceHead small{display:block}.deviceHead small{color:#7b8795;font-size:9px;margin-top:2px}.status{font-size:10px;font-weight:900;padding:5px 8px;border-radius:999px}.status.online{background:#e8f7ef;color:#247a4e}.status.idle{background:#eef2f6;color:#677586}.status.off{background:#f3eceb;color:#946158}.deviceMeta{display:flex;flex-wrap:wrap;gap:6px 12px;margin:9px 0;color:#6e7b8c;font-size:10px}.deviceEditForm{display:grid;grid-template-columns:2fr .7fr .7fr .8fr auto;gap:7px;align-items:end}.rotateForm{margin-top:8px;text-align:right}.rotateForm button{font-size:10px}@media(max-width:720px){.simulatorForm{grid-template-columns:1fr 1fr}.simulatorForm button{grid-column:1/-1}.deviceCreateForm,.deviceEditForm{grid-template-columns:1fr 1fr}.deviceCreateForm label:first-child,.deviceEditForm label:first-child{grid-column:1/-1}.deviceCreateForm button,.deviceEditForm button{grid-column:1/-1;width:100%}}@media(max-width:430px){.simulatorForm{grid-template-columns:1fr}.simulatorForm button{grid-column:auto}.deviceCreateForm,.deviceEditForm{grid-template-columns:1fr}.deviceCreateForm label:first-child,.deviceEditForm label:first-child,.deviceCreateForm button,.deviceEditForm button{grid-column:auto}.deviceHead{align-items:flex-start;flex-direction:column}.rotateForm{text-align:left}.rotateForm button{width:100%}}'}</style>
   </main>;
 }
