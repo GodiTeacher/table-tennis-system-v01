@@ -9,9 +9,12 @@ const char* WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
 const char* DEVICE_KEY = "YOUR_DEVICE_KEY";
 const char* DEVICE_SECRET = "YOUR_DEVICE_SECRET";
 const char* API_URL = "https://table-tennis-system-v01.cramtabletennis.workers.dev/api/device/nfc/check-in";
+const char* PING_URL = "https://table-tennis-system-v01.cramtabletennis.workers.dev/api/device/ping";
 const char* FIRMWARE_VERSION = "UNO-STATION-V1.0.0";
 
 SoftwareSerial unoSerial(D5, D6); // ESP RX, TX - final pins to verify on board
+unsigned long lastHeartbeatAt = 0;
+const unsigned long HEARTBEAT_MS = 120000;
 
 String jsonValue(const String &json, const String &key) {
   String needle="\""+key+"\":";
@@ -60,6 +63,31 @@ bool ensureWifi(){
   return ok;
 }
 
+void sendHeartbeat(){
+  if(!ensureWifi())return;
+
+  std::unique_ptr<BearSSL::WiFiClientSecure> client(new BearSSL::WiFiClientSecure);
+  client->setInsecure();
+
+  HTTPClient https;
+  if(!https.begin(*client,PING_URL))return;
+  https.addHeader("Content-Type","application/json");
+
+  String body="{";
+  body+="\"device_key\":\""+String(DEVICE_KEY)+"\",";
+  body+="\"device_secret\":\""+String(DEVICE_SECRET)+"\",";
+  body+="\"firmware\":\""+String(FIRMWARE_VERSION)+"\"";
+  body+="}";
+
+  int code=https.POST(body);
+  https.end();
+
+  if(code==200){
+    lastHeartbeatAt=millis();
+    sendNetworkState(true);
+  }
+}
+
 void sendResultToUno(const String &json){
   String code=jsonValue(json,"code");
   String led=jsonValue(json,"led");
@@ -106,7 +134,7 @@ void postScan(const String &tokenOrUrl){
 void setup(){
   Serial.begin(115200);
   unoSerial.begin(9600);
-  ensureWifi();
+  if(ensureWifi())sendHeartbeat();
 }
 
 void loop(){
@@ -119,5 +147,9 @@ void loop(){
   }
   if(WiFi.status()!=WL_CONNECTED){
     ensureWifi();
+  }
+
+  if(WiFi.status()==WL_CONNECTED && millis()-lastHeartbeatAt>=HEARTBEAT_MS){
+    sendHeartbeat();
   }
 }
