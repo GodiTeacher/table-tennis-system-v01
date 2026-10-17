@@ -11,24 +11,7 @@ function fit20(value:string){
   return clean.length<=20?clean:clean.slice(0,20);
 }
 
-function hardwarePayload(data:any){
-  const code=String(data?.code??'SERVER_ERROR');
-  const student=data?.student??{};
-  const studentLabel=[
-    student.grade?String(student.grade)+'G':'',
-    student.class_name?String(student.class_name):'',
-    student.seat_number?String(student.seat_number).padStart(2,'0'):''
-  ].filter(Boolean).join('-') || String(student.display_name??'STUDENT');
-
-  const balance=Number(data?.wallet_balance??0);
-  const points=Number(data?.points??0);
-
-  if(code==='CHECKIN_OK'){
-    return {
-      lcd:{lines:[
-        fit20(studentLabel),
-        fit20('CHECK-IN OK'),
-        fit20('BALANCE 
+function normalizeCardToken(input:string){
   const raw=input.trim();
   if(!raw)return '';
   try{
@@ -43,44 +26,24 @@ function hardwarePayload(data:any){
   return raw;
 }
 
-export async function POST(req:NextRequest){
-  let body:any;
-  try{
-    body=await req.json();
-  }catch{
-    return Response.json({ok:false,code:'BAD_JSON'},{status:400});
-  }
+function hardwarePayload(data:any){
+  const code=String(data?.code??'SERVER_ERROR');
+  const student=data?.student??{};
+  const studentLabel=[
+    student.grade?String(student.grade)+'G':'',
+    student.class_name?String(student.class_name):'',
+    student.seat_number?String(student.seat_number).padStart(2,'0'):''
+  ].filter(Boolean).join('-') || 'STUDENT';
 
-  const deviceKey=String(body?.device_key??'').trim();
-  const deviceSecret=String(body?.device_secret??'').trim();
-  const cardToken=normalizeCardToken(String(body?.card_token??body?.ndef_url??''));
-  const firmware=String(body?.firmware??'').trim();
+  const balance=Number(data?.wallet_balance??0);
+  const points=Number(data?.points??0);
 
-  if(!deviceKey||!deviceSecret||!cardToken){
-    return Response.json({ok:false,code:'MISSING_FIELDS'},{status:400});
-  }
-
-  const supabase=await createClient();
-  const {data,error}=await supabase.rpc('device_nfc_check_in',{
-    target_device_key:deviceKey,
-    target_secret_hash:sha256(deviceSecret),
-    target_card_token_hash:sha256(cardToken),
-    target_firmware:firmware||null,
-  });
-
-  if(error){
-    const denied=error.message.includes('DEVICE_DENIED');
-    return Response.json({ok:false,code:denied?'DEVICE_DENIED':'SERVER_ERROR'},{status:denied?403:500});
-  }
-
-  const result=data as any;
-  const hardware=hardwarePayload(result);
-  return Response.json(
-    {...result,...hardware},
-    {status:result?.ok===false?429:200,headers:{'Cache-Control':'no-store'}}
-  );
-}
-+balance.toLocaleString('en-US')),
+  if(code==='CHECKIN_OK'){
+    return {
+      lcd:{lines:[
+        fit20(studentLabel),
+        'CHECK-IN OK',
+        fit20('BALANCE $'+balance.toLocaleString('en-US')),
         fit20('POINTS '+points.toLocaleString('en-US')),
       ]},
       indicator:{led:'green',beep:'short'},
@@ -92,55 +55,8 @@ export async function POST(req:NextRequest){
     return {
       lcd:{lines:[
         fit20(studentLabel),
-        fit20('ALREADY CHECKED'),
-        fit20('BALANCE 
-  const raw=input.trim();
-  if(!raw)return '';
-  try{
-    if(raw.startsWith('http://')||raw.startsWith('https://')){
-      const url=new URL(raw);
-      const parts=url.pathname.split('/').filter(Boolean);
-      const cIndex=parts.lastIndexOf('c');
-      if(cIndex>=0&&parts[cIndex+1])return parts[cIndex+1];
-      return parts.at(-1)??'';
-    }
-  }catch{}
-  return raw;
-}
-
-export async function POST(req:NextRequest){
-  let body:any;
-  try{
-    body=await req.json();
-  }catch{
-    return Response.json({ok:false,code:'BAD_JSON'},{status:400});
-  }
-
-  const deviceKey=String(body?.device_key??'').trim();
-  const deviceSecret=String(body?.device_secret??'').trim();
-  const cardToken=normalizeCardToken(String(body?.card_token??body?.ndef_url??''));
-  const firmware=String(body?.firmware??'').trim();
-
-  if(!deviceKey||!deviceSecret||!cardToken){
-    return Response.json({ok:false,code:'MISSING_FIELDS'},{status:400});
-  }
-
-  const supabase=await createClient();
-  const {data,error}=await supabase.rpc('device_nfc_check_in',{
-    target_device_key:deviceKey,
-    target_secret_hash:sha256(deviceSecret),
-    target_card_token_hash:sha256(cardToken),
-    target_firmware:firmware||null,
-  });
-
-  if(error){
-    const denied=error.message.includes('DEVICE_DENIED');
-    return Response.json({ok:false,code:denied?'DEVICE_DENIED':'SERVER_ERROR'},{status:denied?403:500});
-  }
-
-  return Response.json(data,{status:(data as any)?.ok===false?429:200,headers:{'Cache-Control':'no-store'}});
-}
-+balance.toLocaleString('en-US')),
+        'ALREADY CHECKED',
+        fit20('BALANCE $'+balance.toLocaleString('en-US')),
         fit20('POINTS '+points.toLocaleString('en-US')),
       ]},
       indicator:{led:'yellow',beep:'double'},
@@ -176,19 +92,12 @@ export async function POST(req:NextRequest){
   };
 }
 
-function normalizeCardToken(input:string){
-  const raw=input.trim();
-  if(!raw)return '';
-  try{
-    if(raw.startsWith('http://')||raw.startsWith('https://')){
-      const url=new URL(raw);
-      const parts=url.pathname.split('/').filter(Boolean);
-      const cIndex=parts.lastIndexOf('c');
-      if(cIndex>=0&&parts[cIndex+1])return parts[cIndex+1];
-      return parts.at(-1)??'';
-    }
-  }catch{}
-  return raw;
+function errorPayload(code:string,status:number){
+  const hardware=hardwarePayload({code});
+  return Response.json(
+    {ok:false,code,...hardware},
+    {status,headers:{'Cache-Control':'no-store'}}
+  );
 }
 
 export async function POST(req:NextRequest){
@@ -196,7 +105,7 @@ export async function POST(req:NextRequest){
   try{
     body=await req.json();
   }catch{
-    return Response.json({ok:false,code:'BAD_JSON'},{status:400});
+    return errorPayload('BAD_JSON',400);
   }
 
   const deviceKey=String(body?.device_key??'').trim();
@@ -205,7 +114,7 @@ export async function POST(req:NextRequest){
   const firmware=String(body?.firmware??'').trim();
 
   if(!deviceKey||!deviceSecret||!cardToken){
-    return Response.json({ok:false,code:'MISSING_FIELDS'},{status:400});
+    return errorPayload('MISSING_FIELDS',400);
   }
 
   const supabase=await createClient();
@@ -218,8 +127,16 @@ export async function POST(req:NextRequest){
 
   if(error){
     const denied=error.message.includes('DEVICE_DENIED');
-    return Response.json({ok:false,code:denied?'DEVICE_DENIED':'SERVER_ERROR'},{status:denied?403:500});
+    return errorPayload(denied?'DEVICE_DENIED':'SERVER_ERROR',denied?403:500);
   }
 
-  return Response.json(data,{status:(data as any)?.ok===false?429:200,headers:{'Cache-Control':'no-store'}});
+  const result=data as any;
+  const hardware=hardwarePayload(result);
+  return Response.json(
+    {...result,...hardware},
+    {
+      status:result?.ok===false?429:200,
+      headers:{'Cache-Control':'no-store'}
+    }
+  );
 }
