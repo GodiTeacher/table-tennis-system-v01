@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentTeamEntitlements } from '@/lib/subscription-server';
 import PlanSummaryCard from '@/components/PlanSummaryCard';
 
@@ -50,31 +49,31 @@ const ROLE_TEXT: Record<string, string> = { owner: '擁有者', admin: '管理�
 type TeamInfo={id:string;school_name:string|null;sport_name:string|null;name:string;short_name:string|null;logo_data_url:string|null;brand_color:string|null};
 
 export default async function MorePage() {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
+  const {supabase,userId,teamId,entitlements}=await getCurrentTeamEntitlements();
   let team: TeamInfo | null = null;
   let memberRole = '';
   let activeStudentCount:number|undefined;
   let isPlatformAdmin=false;
+
   if (userId) {
-    const [{ data: teamId },{data:platformAdmin}] = await Promise.all([
-      supabase.rpc('current_team_id'),
-      supabase.rpc('is_platform_admin'),
-    ]);
-    isPlatformAdmin=Boolean(platformAdmin);
+    const platformAdminPromise=supabase.rpc('is_platform_admin');
+
     if (teamId) {
-      const [{ data: teamData }, { data: membership }, {count}] = await Promise.all([
+      const [{ data: teamData }, { data: membership }, {count}, {data:platformAdmin}] = await Promise.all([
         supabase.from('teams').select('id,school_name,sport_name,name,short_name,logo_data_url,brand_color').eq('id', teamId).single(),
         supabase.from('team_members').select('member_role').eq('team_id', teamId).eq('user_id', userId).single(),
         supabase.from('students').select('id',{count:'exact',head:true}).eq('team_id',teamId).eq('active',true),
+        platformAdminPromise,
       ]);
       team = (teamData as TeamInfo | null) ?? null;
       memberRole = membership?.member_role ?? '';
       activeStudentCount=count??0;
+      isPlatformAdmin=Boolean(platformAdmin);
+    } else {
+      const {data:platformAdmin}=await platformAdminPromise;
+      isPlatformAdmin=Boolean(platformAdmin);
     }
   }
-  const {entitlements}=await getCurrentTeamEntitlements();
   const isFree=entitlements?.plan_code==='free';
 
   return <main className="shell moreShell">
