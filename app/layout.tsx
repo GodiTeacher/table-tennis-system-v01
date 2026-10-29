@@ -27,20 +27,23 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const validCookieTheme = savedTheme && VALID_THEMES.has(savedTheme) ? savedTheme : null;
   let theme = validCookieTheme ?? "current";
 
-  // For signed-in users, the profile setting is the source of truth.
-  // The cookie is only a fast bootstrap/fallback and is resynced when stale.
-  try {
-    const supabase = await createClient();
-    const { data: claims } = await supabase.auth.getClaims();
-    const userId = claims?.claims?.sub;
-    if (userId) {
-      const { data: profile } = await supabase.from("profiles").select("theme_preference").eq("id", userId).single();
-      if (profile?.theme_preference && VALID_THEMES.has(profile.theme_preference)) {
-        theme = profile.theme_preference;
+  // Theme changes already persist the ui-theme cookie in settings/actions.ts.
+  // Avoid an auth + profile round-trip on every route transition when a valid
+  // cookie is already present. Only bootstrap from the profile when needed.
+  if (!validCookieTheme) {
+    try {
+      const supabase = await createClient();
+      const { data: claims } = await supabase.auth.getClaims();
+      const userId = claims?.claims?.sub;
+      if (userId) {
+        const { data: profile } = await supabase.from("profiles").select("theme_preference").eq("id", userId).single();
+        if (profile?.theme_preference && VALID_THEMES.has(profile.theme_preference)) {
+          theme = profile.theme_preference;
+        }
       }
+    } catch {
+      theme = "current";
     }
-  } catch {
-    theme = validCookieTheme ?? "current";
   }
 
   const shouldBootstrap = validCookieTheme !== theme;
