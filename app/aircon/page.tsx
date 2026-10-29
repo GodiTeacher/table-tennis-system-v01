@@ -20,7 +20,13 @@ const tm=(t:string)=>{const [h,m]=String(t).slice(0,5).split(':').map(Number);re
 
 export default async function AirconPage({searchParams}:{searchParams:Promise<{month?:string;message?:string;error?:string;allocate?:string;allow_unclassified?:string}>}){
   const q=await searchParams;const month=q.month||currentMonth();const allocate=q.allocate==='1';const allowUnclassified=q.allow_unclassified==='1';const monthStart=`${month}-01`;const endDate=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),1);const nextMonth=`${endDate.getFullYear()}-${pad(endDate.getMonth()+1)}-01`;
-  const supabase=await createClient();const {data:claims}=await supabase.auth.getClaims();if(!claims?.claims?.sub)redirect('/login');const {data:teamId}=await supabase.rpc('current_team_id');if(!teamId)redirect('/more');
+  const supabase=await createClient();
+  const [{data:claims},{data:teamId}]=await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.rpc('current_team_id'),
+  ]);
+  if(!claims?.claims?.sub)redirect('/login');
+  if(!teamId)redirect('/more');
   const [{data:meterHistory},{data:runs},{data:attendance},{data:feeGroups},{data:groupMonths}]=await Promise.all([
     supabase.from('aircon_meter_records').select('id,record_month,opening_reading,closing_reading,rate_per_unit,fixed_fee,note').eq('team_id',teamId).order('record_month',{ascending:false}).limit(18),
     supabase.from('aircon_runs').select('id,meter_record_id,usage_date,start_time,end_time,note,source').eq('team_id',teamId).gte('usage_date',monthStart).lt('usage_date',nextMonth).order('usage_date').order('start_time'),
