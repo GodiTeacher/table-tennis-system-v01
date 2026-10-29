@@ -18,12 +18,13 @@ export default async function TodayPage({
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect('/login');
 
-  const { data: profile } = await supabase.from('profiles').select('role,display_name').eq('id', userId).single();
+  const [{ data: profile }, { data: teamId }] = await Promise.all([
+    supabase.from('profiles').select('role,display_name').eq('id', userId).single(),
+    supabase.rpc('current_team_id'),
+  ]);
   if (!profile || !['admin','coach'].includes(profile.role)) {
     return <main className="shell"><section className="card"><h1>帳號等待核准</h1><p className="muted">目前帳號尚未取得教練權限。</p></section></main>;
   }
-
-  const { data: teamId } = await supabase.rpc('current_team_id');
   const todayDate=taipeiDate();
   const [{ data: students }, { data: customSkillRows }, { data: groups }, { data: presets }, {data:checkins}, {data:devices}] = await Promise.all([
     supabase
