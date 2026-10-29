@@ -26,17 +26,20 @@ type Rule={staff_id:string|null;coach_user_id:string|null;method:string;monthly_
 type Work={id:string;staff_id:string|null;coach_user_id:string|null;work_date:string;start_time:string;end_time:string;source:string;note:string|null};
 type Att={attendance_date:string;start_time:string;end_time:string;attendee_count:number|null};
 
-export default async function PayrollPage({searchParams}:{searchParams:Promise<{month?:string;message?:string;error?:string}>}){
+export default async function PayrollPage({searchParams}:{searchParams:Promise<{month?:string;message?:string;error?:string;calculate?:string}>}){
   const q=await searchParams;
   const month=q.month||currentMonth();
+  const calculate=q.calculate==='1';
   const monthStart=`${month}-01`;
   const d=new Date(Number(month.slice(0,4)),Number(month.slice(5,7)),1);
   const nextMonth=`${d.getFullYear()}-${pad(d.getMonth()+1)}-01`;
 
   const supabase=await createClient();
-  const {data:claims}=await supabase.auth.getClaims();
+  const [{data:claims},{data:teamId}]=await Promise.all([
+    supabase.auth.getClaims(),
+    supabase.rpc('current_team_id'),
+  ]);
   if(!claims?.claims?.sub)redirect('/login');
-  const {data:teamId}=await supabase.rpc('current_team_id');
   if(!teamId)redirect('/more');
 
   const [
@@ -49,7 +52,9 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
     supabase.from('finance_items').select('id,record_month,item_type,category,description,amount').eq('team_id',teamId).eq('record_month',monthStart).order('created_at'),
     supabase.from('aircon_meter_records').select('opening_reading,closing_reading,rate_per_unit,fixed_fee').eq('team_id',teamId).eq('record_month',monthStart).maybeSingle(),
     supabase.from('attendance_templates').select('id,weekday,start_time,end_time,default_count,note').eq('team_id',teamId).eq('mode','count').eq('active',true).order('weekday').order('start_time'),
-    supabase.from('daily_attendance_segments').select('attendance_date,start_time,end_time,attendee_count').eq('team_id',teamId).eq('mode','count').gte('attendance_date',monthStart).lt('attendance_date',nextMonth),
+    calculate
+      ? supabase.from('daily_attendance_segments').select('attendance_date,start_time,end_time,attendee_count').eq('team_id',teamId).eq('mode','count').gte('attendance_date',monthStart).lt('attendance_date',nextMonth)
+      : Promise.resolve({data:[] as Att[]}),
   ]);
 
   const staffList=(staff??[]) as Staff[];
@@ -140,12 +145,12 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
       <div className="moneySummary"><div><span>收入合計</span><b>${Math.round(income).toLocaleString()}</b></div><div><span>營運支出</span><b>${Math.ceil(operatingExpense).toLocaleString()}</b></div><div><span>扣薪前可用</span><b>${Math.floor(beforeCoachPool).toLocaleString()}</b></div></div>
     </section>
 
-    <section className="card" id="coach-pay"><div className="sectionTitle"><div><span>06</span><h2>教練薪酬分配</h2></div><strong>即時試算</strong></div><div className="formulaBox"><b>計薪公式</b><span>固定月薪：直接加入個人本月薪酬。</span><span>原始權重 ＝ Σ（該段實際出勤小時 × 該段學生人數）</span><span>最終權重 ＝ 原始權重 × 加權比例；加權比例 0 代表不參與。</span><span>加權可分配池 ＝ 收入 − 營運支出 − 全體固定月薪</span><span>本月薪酬 ＝ 固定月薪 ＋ 個人加權分配。</span></div><a className="primaryButton calc" href="#coach-pay-results">查看本月薪酬分配</a>
-      <div id="coach-pay-results" className="payResult"><div className={`notice ${atts.length&&workList.length?'successNotice':'warningNotice'}`}>已讀取 <b>{atts.length} 個學生出勤時段</b>、<b>{workList.length} 段教練實際出勤</b>；加權總權重 <b>{totalWeight.toFixed(1)}</b>。</div><div className="poolSummary"><div><span>收入</span><b>${Math.round(income).toLocaleString()}</b></div><div><span>營運支出</span><b>-${Math.ceil(operatingExpense).toLocaleString()}</b></div><div><span>固定月薪</span><b>-${Math.round(fixedPayTotal).toLocaleString()}</b></div><div><span>加權教練可分配池</span><b>${Math.floor(weightedPool).toLocaleString()}</b></div></div>
+    <section className="card" id="coach-pay"><div className="sectionTitle"><div><span>06</span><h2>教練薪酬分配</h2></div><strong>{calculate?'已試算':'按需試算'}</strong></div><div className="formulaBox"><b>計薪公式</b><span>固定月薪：直接加入個人本月薪酬。</span><span>原始權重 ＝ Σ（該段實際出勤小時 × 該段學生人數）</span><span>最終權重 ＝ 原始權重 × 加權比例；加權比例 0 代表不參與。</span><span>加權可分配池 ＝ 收入 − 營運支出 − 全體固定月薪</span><span>本月薪酬 ＝ 固定月薪 ＋ 個人加權分配。</span></div>{!calculate?<><div className="notice">為避免每次修改班表、出勤或收支時都重新讀取整月學生出勤並重算薪酬，現在改為按需試算。</div><Link className="primaryButton calc" href={`/payroll?month=${month}&calculate=1#coach-pay-results`}>計算本月薪酬分配</Link></>:null}
+      {calculate?<div id="coach-pay-results" className="payResult"><div className={`notice ${atts.length&&workList.length?'successNotice':'warningNotice'}`}>已讀取 <b>{atts.length} 個學生出勤時段</b>、<b>{workList.length} 段教練實際出勤</b>；加權總權重 <b>{totalWeight.toFixed(1)}</b>。</div><div className="poolSummary"><div><span>收入</span><b>${Math.round(income).toLocaleString()}</b></div><div><span>營運支出</span><b>-${Math.ceil(operatingExpense).toLocaleString()}</b></div><div><span>固定月薪</span><b>-${Math.round(fixedPayTotal).toLocaleString()}</b></div><div><span>加權教練可分配池</span><b>${Math.floor(weightedPool).toLocaleString()}</b></div></div>
         <div className="salaryGrid">{activeStaff.map(s=>{const r=ruleMap.get(s.id);const fixed=fixedPayMap.get(s.id)??0;const rawWeight=rawWeightMap.get(s.id)??0;const multiplier=Math.max(0,Number(r?.weight_multiplier??0));const weight=weightMap.get(s.id)??0;const share=totalWeight>0?weight/totalWeight:0;const weighted=weightedPayMap.get(s.id)??0;const pay=payMap.get(s.id)??0;const mode=fixed>0&&multiplier>0?'固定＋加權':fixed>0?'固定月薪':multiplier>0?'加權分配':'未設定';return <article key={s.id} className={fixed>0?'fixedSalary':''}><header><b>{s.display_name}</b><span>{mode}</span></header><strong>${Math.round(pay).toLocaleString()}</strong><small>{fixed>0?`固定 ${Math.round(fixed).toLocaleString()}｜`:''}{multiplier>0?`原始 ${rawWeight.toFixed(1)} 人時 × ${multiplier.toFixed(2)}＝${weight.toFixed(1)} 加權｜占比 ${(share*100).toFixed(1)}%｜加權 ${Math.round(weighted).toLocaleString()}`:'不參與加權分配'}</small></article>})}</div>
         <div className="closeSummary">教練薪酬合計 <b>${Math.round(coachPayTotal).toLocaleString()}</b>｜分配後餘額 <b className={finalBalance<0?'negative':''}>${Math.round(finalBalance).toLocaleString()}</b></div>
         <PayrollReportExport month={month} incomeItems={incomeItems} expenseItems={expenseItems} income={income} operatingExpense={operatingExpense} fixedPayTotal={fixedPayTotal} weightedPool={weightedPool} coachPayTotal={coachPayTotal} finalBalance={finalBalance} staff={reportStaff}/>
-      </div>
+      </div>:null}
     </section>
 
     <section className="card"><div className="sectionTitle"><div><span>07</span><h2>前往營運月結</h2></div><strong>整合檢查</strong></div><div className="notice">完成學生出勤、冷氣費與教練薪酬後，到營運月結一次確認本月是否全部完成。</div><Link className="primaryButton calc" href={`/operations-close?month=${month}`}>查看 {month} 營運月結 →</Link></section>
