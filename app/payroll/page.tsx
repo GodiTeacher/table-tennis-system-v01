@@ -9,12 +9,12 @@ import {
   applyCoachTemplatesToMonth,
   archiveStaffMember,
   deleteCoachScheduleTemplate,
-  deleteFinanceItem,
   saveCoachPayRule,
   updateStaffMember,
 } from './actions';
 import { addCoachAttendanceForMonth, updateCoachAttendanceBulk } from './edit-actions';
 import PayrollReportExport from '@/components/PayrollReportExport';
+import DeleteFinanceItemButton from '@/components/DeleteFinanceItemButton';
 
 const WEEK=['一','二','三','四','五','六','日'];
 const pad=(n:number)=>String(n).padStart(2,'0');
@@ -141,7 +141,7 @@ export default async function PayrollPage({searchParams}:{searchParams:Promise<{
     </section>
 
     <section className="card" id="finance"><div className="sectionTitle"><div><span>05</span><h2>收入與支出項目</h2></div><strong>{month}</strong></div><div className="notice">先列完整本月收入與支出；冷氣費會由冷氣電表結算自動帶入。</div><form action={addFinanceItem} className="grid"><input type="hidden" name="record_month" value={month}/><label>類型<select name="item_type"><option value="income">收入</option><option value="expense">支出</option></select></label><label>分類<input name="category" required/></label><label>說明<input name="description"/></label><label>金額<input type="number" name="amount" min="0" required/></label><button className="primaryButton wide">＋ 新增收支</button></form>
-      <div className="financeCols"><div><h3>收入</h3>{financeList.filter(x=>x.item_type==='income').map(x=><article key={x.id}><div><b>{x.category}</b><span>{x.description??''}</span></div><strong>+${Number(x.amount).toLocaleString()}</strong><form action={deleteFinanceItem}><input type="hidden" name="id" value={x.id}/><input type="hidden" name="month" value={month}/><button className="dangerButton">刪除</button></form></article>)}</div><div><h3>支出</h3>{financeList.filter(x=>x.item_type==='expense').map(x=><article key={x.id}><div><b>{x.category}</b><span>{x.description??''}</span></div><strong>-${Number(x.amount).toLocaleString()}</strong><form action={deleteFinanceItem}><input type="hidden" name="id" value={x.id}/><input type="hidden" name="month" value={month}/><button className="dangerButton">刪除</button></form></article>)}{meter?<article className="systemExpense"><div><b>冷氣費（系統）</b><span>由冷氣電表結算自動帶入</span></div><strong>-${Math.ceil(airconCost).toLocaleString()}</strong></article>:null}</div></div>
+      <div className="financeCols"><div><h3>收入</h3>{financeList.filter(x=>x.item_type==='income').map(x=><article key={x.id}><div><b>{x.category}</b><span>{x.description??''}</span></div><strong>+${Number(x.amount).toLocaleString()}</strong><DeleteFinanceItemButton id={x.id} month={month}/></article>)}</div><div><h3>支出</h3>{financeList.filter(x=>x.item_type==='expense').map(x=><article key={x.id}><div><b>{x.category}</b><span>{x.description??''}</span></div><strong>-${Number(x.amount).toLocaleString()}</strong><form action={deleteFinanceItem}><input type="hidden" name="id" value={x.id}/><input type="hidden" name="month" value={month}/><button className="dangerButton">刪除</button></form></article>)}{meter?<article className="systemExpense"><div><b>冷氣費（系統）</b><span>由冷氣電表結算自動帶入</span></div><strong>-${Math.ceil(airconCost).toLocaleString()}</strong></article>:null}</div></div>
       <div className="moneySummary"><div><span>收入合計</span><b>${Math.round(income).toLocaleString()}</b></div><div><span>營運支出</span><b>${Math.ceil(operatingExpense).toLocaleString()}</b></div><div><span>扣薪前可用</span><b>${Math.floor(beforeCoachPool).toLocaleString()}</b></div></div>
     </section>
 
